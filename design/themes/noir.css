@@ -1,0 +1,84 @@
+@font-face { font-family: "Archivo"; src: url(/static/fonts/archivo.woff2) format("woff2"); font-weight: 100 900; font-stretch: 62% 125%; font-display: swap; }
+
+:root {
+  --bg: #0b0a09; --card: #12110f; --card-2: #1a1814; --text: #f1ece3; --muted: #8f877a; --line: #26221d; --edge: #3a342b;
+  --accent: #c9a56b; --accent-soft: #221c12; --accent-ink: #0b0a09;
+  --wa: #c9a56b; --wa-ink: #0b0a09; --blue: #e9e1d2;
+  --warn-bg: #231d10; --warn: #e2c285; --danger: #e0715f; --danger-bg: #2a1410; --good: #a9c28a;
+  --radius: 2px; --shadow: none;
+  color-scheme: dark;
+}
+body { font-family: "Archivo", system-ui, sans-serif; }
+h1, h2, h3, .topbar-title, .topbar-back, .logo, .plate, .stat b, .btn, .lane h2, .eyebrow, .field > span, .field > legend, th, .tabbar a, .stat span, .since, .input-plate, .count { font-stretch: 125%; }
+h1 { font-weight: 500; text-transform: uppercase; letter-spacing: .01em; }
+a, .link { color: var(--accent); }
+
+.btn { border-radius: 1px; background: transparent; border-color: var(--edge); text-transform: uppercase; letter-spacing: .16em; font-size: .72rem; font-weight: 600; min-height: 44px; }
+.btn.big { font-size: .8rem; min-height: 54px; }
+.plate { font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.visit-top .plate { font-size: 1.05rem; }
+.since { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; }
+
+.topbar { background: rgb(11 10 9 / 88%); border-bottom-color: var(--line); }
+.topbar-title, .topbar-back { font-size: .86rem; letter-spacing: .24em; text-transform: uppercase; font-weight: 600; }
+.banner-demo { background: transparent; color: var(--muted); border-bottom: 1px solid var(--line); font-size: .78rem; }
+.banner-demo a { color: var(--accent); }
+
+.stat { background: transparent; border: 0; border-top: 1px solid var(--edge); border-radius: 0; padding: 10px 0 0; }
+.today .stat:first-child, .stats .stat:first-child { border-top-color: var(--accent); }
+.stat b { font-weight: 400; font-size: 1.6rem; letter-spacing: 0; }
+.stat span { text-transform: uppercase; letter-spacing: .2em; font-size: .6rem; margin-top: 4px; }
+
+.lane h2 { font-size: .64rem; letter-spacing: .26em; font-weight: 600; }
+.lane > h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.count { background: transparent; color: var(--accent); border-radius: 0; padding: 0; font-size: .64rem; }
+.lane-washing h2 .count, .lane-ready h2 .count { background: transparent; color: var(--accent); }
+
+.card { background: var(--card); border-color: var(--line); }
+.visit.card { background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; margin: 0; padding: 16px 0 16px 14px; border-left: 2px solid transparent; }
+.lane .visit:last-of-type { border-bottom: 1px solid var(--line); }
+.lane-washing .visit { border-left-color: var(--blue); }
+.lane-ready .visit { border-left-color: var(--accent); }
+.visit-actions .btn { min-width: 116px; }
+.visit-note { border-radius: 0; background: transparent; border-left: 1px solid var(--warn); padding: 0 8px; }
+
+.tabbar { background: #0b0a09; border-top-color: var(--line); }
+.tabbar a { text-transform: uppercase; letter-spacing: .12em; font-size: .56rem; gap: 6px; }
+.tabbar a .icon { stroke-width: 1.3; width: 22px; height: 22px; }
+.icon { stroke-width: 1.5; }
+
+input, select, textarea { background: transparent; border: 0; border-bottom: 1px solid var(--edge); border-radius: 0; padding-left: 2px; }
+input:focus, select:focus, textarea:focus { outline: 0; border-bottom-color: var(--accent); }
+.search input { padding-left: 34px; }
+.search .icon { left: 4px; }
+.input-plate { font-size: 1.55rem; letter-spacing: .14em; font-weight: 600; }
+.field > span, .field > legend { text-transform: uppercase; letter-spacing: .22em; font-size: .6rem; font-weight: 600; }
+.stack { gap: 22px; }
+.chip span { border-radius: 1px; background: transparent; border-color: var(--edge); font-weight: 500; }
+.lookup { border-radius: 0; background: transparent; border-left: 1px solid var(--accent); }
+
+.segmented { background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 0; gap: 0; }
+.segmented a { border-radius: 0; text-transform: uppercase; letter-spacing: .1em; font-size: .7rem; border-bottom: 1px solid transparent; margin-bottom: -1px; padding: 12px 4px; }
+.segmented a.on { background: transparent; color: var(--accent); border-bottom-color: var(--accent); }
+.bar { background: var(--line); border-radius: 0; height: 3px; }
+.bar i { border-radius: 0; }
+th { letter-spacing: .14em; font-size: .6rem; }
+.card > h2 { text-transform: uppercase; letter-spacing: .24em; font-size: .68rem; font-stretch: 125%; color: var(--muted); }
+.flash { background: transparent; border-left: 1px solid var(--accent); border-radius: 0; }
+dialog.sheet { border-radius: 2px; background: var(--card); border-color: var(--edge); }
+.bubble { background: #005c4b; color: #e9edef; }
+
+.eyebrow { letter-spacing: .32em; font-size: .64rem; }
+.hero h1 { font-size: clamp(1.9rem, 7.4vw, 3.3rem); font-weight: 400; line-height: 1.08; letter-spacing: -.005em; }
+.lead { color: #a39b8e; }
+.phone { background: #000; border: 1px solid #2f2a22; border-radius: 34px; box-shadow: 0 40px 90px -30px rgb(201 165 107 / 20%); }
+.mini-card { border: 0; border-top: 1px solid var(--line); border-left: 2px solid var(--blue); border-radius: 0; background: transparent; }
+.mini-card:nth-of-type(n+5) { border-left-color: var(--edge); }
+.mini-btn { border-radius: 0; background: transparent; text-transform: uppercase; letter-spacing: .12em; font-size: .6rem; font-stretch: 125%; }
+.mini-today span { border-radius: 0; background: transparent; border: 0; border-top: 1px solid var(--accent); }
+.steps li::before { border-radius: 0; background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+.steps li, .feature, .faq details { background: transparent; }
+.price-card { border: 1px solid var(--accent); border-radius: 0; }
+.visit-top { display: block; }
+.visit-top .since { display: block; margin: 2px 0 4px; }
+.logo { font-stretch: 112%; letter-spacing: .04em; }

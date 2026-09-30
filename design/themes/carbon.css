@@ -1,0 +1,81 @@
+@font-face { font-family: "Barlow"; src: url(/static/fonts/barlow-400.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url(/static/fonts/barlow-500.woff2) format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url(/static/fonts/barlow-600.woff2) format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url(/static/fonts/barlow-700.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url(/static/fonts/barlow-condensed-500.woff2) format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url(/static/fonts/barlow-condensed-600.woff2) format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url(/static/fonts/barlow-condensed-700.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+
+:root {
+  --bg: #0a0a0a; --card: #141414; --card-2: #1c1c1c; --text: #f2f2f2; --muted: #8c8c8c; --line: #242424;
+  --accent: #ff5a1f; --accent-soft: #2b1409; --accent-ink: #0a0a0a;
+  --wa: #25d366; --wa-ink: #03140a; --blue: #ffb000;
+  --warn-bg: #2a2005; --warn: #ffc53d; --danger: #ff4545; --danger-bg: #2a0c0c; --good: #3ddc84;
+  --radius: 4px; --shadow: none; --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  color-scheme: dark;
+}
+body { font-family: "Barlow", system-ui, sans-serif; }
+h1, h2, h3, .topbar-title, .topbar-back, .logo { font-family: var(--display); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+.plate { font-family: var(--display); font-weight: 700; letter-spacing: .08em; }
+.visit-top .plate { font-size: 1.5rem; line-height: 1.1; }
+.since { font-family: var(--display); font-size: .95rem; font-weight: 600; letter-spacing: .06em; }
+.lane-washing .since { color: var(--blue); }
+
+.btn { border-radius: 3px; background: var(--card-2); border-color: #303030; font-family: var(--display); text-transform: uppercase; letter-spacing: .09em; font-weight: 700; font-size: 1.02rem; }
+.btn.big { font-size: 1.2rem; }
+.btn.primary { box-shadow: 0 0 0 1px var(--accent), 0 10px 30px -12px rgb(255 90 31 / 70%); }
+.link { color: var(--accent); }
+a { color: var(--accent); }
+
+.topbar { background: rgb(10 10 10 / 90%); border-bottom-color: #1c1c1c; }
+.topbar-title { font-size: 1.3rem; letter-spacing: .06em; gap: .5em; }
+.topbar-title::before { content: ""; width: 10px; height: 10px; background: var(--accent); transform: skewX(-18deg); }
+.banner-demo { background: #111; color: var(--muted); border-bottom: 1px solid #1c1c1c; }
+.banner-demo a { color: var(--accent); }
+
+.stat { background: transparent; border: 0; border-left: 2px solid #333; border-radius: 0; padding: 2px 0 2px 12px; }
+.today .stat:first-child, .stats .stat:first-child { border-left-color: var(--accent); }
+.stat b { font-family: var(--display); font-size: 2.2rem; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat span { text-transform: uppercase; letter-spacing: .14em; font-size: .68rem; font-weight: 600; margin-top: 6px; }
+
+.lane h2 { font-family: var(--display); font-size: .95rem; letter-spacing: .18em; color: var(--muted); }
+.lane > h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.count { font-family: var(--display); font-size: .85rem; border-radius: 2px; padding: 0 .5em; background: #262626; }
+.lane-washing h2 .count { background: var(--blue); color: #0a0a0a; }
+
+.card { border-color: #1e1e1e; }
+.visit { border-left-width: 3px; background: linear-gradient(90deg, #171717, #111); }
+.visit-meta b { color: var(--text); font-weight: 600; }
+.visit-note { border-radius: 2px; }
+
+.tabbar { background: #0a0a0a; border-top-color: #1c1c1c; }
+.tabbar a { position: relative; font-family: var(--display); text-transform: uppercase; letter-spacing: .14em; font-size: .72rem; }
+.tabbar a.on::before { content: ""; position: absolute; top: 0; left: 32%; right: 32%; height: 2px; background: var(--accent); }
+.icon { stroke-width: 1.75; }
+
+input, select, textarea { border-radius: 3px; background: #101010; border-color: #2a2a2a; }
+input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.input-plate { font-family: var(--display); font-size: 1.9rem; letter-spacing: .12em; }
+.field > span, .field > legend { text-transform: uppercase; letter-spacing: .14em; font-size: .7rem; }
+.chip span { border-radius: 3px; background: #131313; border-color: #2a2a2a; }
+.lookup { border-radius: 3px; border-left: 2px solid var(--accent); }
+
+.segmented { border-radius: 4px; background: #111; border-color: #1e1e1e; }
+.segmented a { border-radius: 2px; font-family: var(--display); text-transform: uppercase; letter-spacing: .1em; font-size: .9rem; }
+.bar { background: #1c1c1c; border-radius: 0; height: 8px; }
+.bar i { border-radius: 0; }
+th { letter-spacing: .14em; }
+.card > h2 { font-size: 1.15rem; letter-spacing: .1em; }
+.flash { border-left: 3px solid var(--accent); border-radius: 3px; }
+dialog.sheet { border-radius: 6px; background: #121212; }
+.bubble { background: #005c4b; color: #e9edef; }
+
+.eyebrow { font-family: var(--display); letter-spacing: .24em; font-size: .9rem; }
+.hero h1 { font-size: clamp(2.7rem, 10vw, 4.8rem); line-height: .92; letter-spacing: .005em; }
+.lead { color: #a3a3a3; }
+.phone { background: #000; border: 1px solid #262626; border-radius: 36px; box-shadow: 0 40px 90px -30px rgb(255 90 31 / 28%); }
+.mini-card { border-radius: 3px; border-left-color: var(--blue); }
+.mini-btn { border-radius: 2px; font-family: var(--display); text-transform: uppercase; letter-spacing: .08em; font-size: .8rem; }
+.steps li::before { border-radius: 0; font-family: var(--display); transform: skewX(-10deg); }
+.price-card { border-radius: 6px; }
+.mini-today span { border-radius: 3px; }

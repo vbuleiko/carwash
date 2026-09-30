@@ -1,0 +1,75 @@
+@font-face { font-family: "Space Grotesk"; src: url(/static/fonts/space-grotesk.woff2) format("woff2"); font-weight: 300 700; font-display: swap; }
+
+:root {
+  --bg: #0b0c0e; --card: #15171a; --card-2: #1d2024; --text: #eef0f3; --muted: #8b919a; --line: #24282d;
+  --accent: #d4ff3a; --accent-soft: #20280c; --accent-ink: #0b0c0e;
+  --wa: #d4ff3a; --wa-ink: #0b0c0e; --blue: #7cb4ff;
+  --warn-bg: #2b2408; --warn: #ffd84d; --danger: #ff6b5b; --danger-bg: #2d110e; --good: #c6f432;
+  --radius: 22px; --shadow: none;
+  color-scheme: dark;
+}
+body { font-family: "Space Grotesk", system-ui, sans-serif; }
+h1 { letter-spacing: -.03em; }
+a, .link { color: var(--accent); }
+
+.btn { border-radius: 999px; background: var(--card-2); border-color: transparent; font-weight: 600; }
+.btn.big { min-height: 54px; }
+.plate { display: inline-block; background: #f1f3f5; color: #0b0c0e; border-radius: 6px; padding: 0 .45em; font-weight: 700; letter-spacing: .06em; box-shadow: inset 0 0 0 1.5px #0b0c0e; }
+.visit-top .plate { font-size: 1.05rem; line-height: 1.5; }
+.visit-top { row-gap: 4px; margin-bottom: 4px; }
+
+.topbar { background: rgb(11 12 14 / 80%); border-bottom: 0; backdrop-filter: blur(16px); }
+.topbar-title, .topbar-back { letter-spacing: -.01em; }
+.banner-demo { background: var(--accent-soft); color: var(--accent); }
+
+.stat { background: var(--card); border: 0; border-radius: 22px; padding: 12px 16px; }
+.stat b { font-size: 1.7rem; letter-spacing: -.03em; }
+.stat span { font-size: .78rem; }
+
+.lane h2 { font-size: .78rem; letter-spacing: .1em; font-weight: 600; }
+.lane h2::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #3a3f46; }
+.lane-washing h2::before { background: var(--blue); box-shadow: 0 0 12px var(--blue); }
+.lane-ready h2::before { background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+.count { background: var(--card-2); color: var(--muted); }
+.lane-washing h2 .count { background: var(--blue); color: #0b0c0e; }
+
+.card { border: 0; }
+.visit { border-left: 0; padding: 14px 14px 14px 16px; }
+.lane-washing .visit { background: linear-gradient(135deg, rgb(124 180 255 / 9%), transparent 45%), var(--card); }
+.lane-ready .visit { background: linear-gradient(135deg, rgb(212 255 58 / 8%), transparent 45%), var(--card); }
+.visit-actions .btn { min-width: 100px; }
+.visit-note { border-radius: 8px; }
+
+body.app { padding-bottom: calc(var(--tabbar) + 28px + env(safe-area-inset-bottom)); }
+.tabbar {
+  left: 50%; right: auto; transform: translateX(-50%); width: min(480px, calc(100% - 24px));
+  bottom: calc(12px + env(safe-area-inset-bottom)); height: var(--tabbar); padding: 6px; gap: 4px;
+  border: 1px solid var(--line); border-radius: 26px; background: rgb(21 23 26 / 96%); backdrop-filter: blur(16px);
+}
+.tabbar a { border-radius: 20px; }
+.tabbar a.on { background: var(--accent); color: var(--accent-ink); }
+
+input, select, textarea { border-radius: 14px; background: var(--card); border-color: var(--line); }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); }
+.input-plate { font-size: 1.6rem; letter-spacing: .08em; }
+.chip span { background: var(--card); border-color: var(--line); }
+.lookup { border-radius: 14px; }
+
+.segmented { border-radius: 999px; background: var(--card); border: 0; }
+.segmented a { border-radius: 999px; }
+.bar { background: var(--card-2); border-radius: 999px; height: 10px; }
+.bar i { border-radius: 999px; }
+.flash { border-radius: 16px; }
+dialog.sheet { border-radius: 28px; border-color: var(--line); }
+.bubble { background: #005c4b; color: #e9edef; }
+
+.hero h1 { font-size: clamp(2.3rem, 9vw, 3.9rem); letter-spacing: -.045em; line-height: 1; }
+.eyebrow { letter-spacing: .1em; }
+.phone { background: #1d2024; border-radius: 42px; box-shadow: 0 40px 100px -30px rgb(212 255 58 / 22%); }
+.phone-screen { border-radius: 32px; }
+.mini-card { border: 0; border-radius: 14px; }
+.mini-btn { border-radius: 999px; border: 0; background: var(--card-2); }
+.mini-card .plate { font-size: .8rem; }
+.steps li, .feature { border: 0; }
+.price-card { border: 1px solid var(--accent); border-radius: 30px; }
+.mini-today span { border: 0; border-radius: 12px; }
