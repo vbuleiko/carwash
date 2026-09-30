@@ -1,6 +1,5 @@
 """Your own back office: every car wash, trials, payments."""
 import calendar
-import hmac
 import secrets
 from datetime import date
 
@@ -17,8 +16,9 @@ from flask import (
 )
 from werkzeug.security import generate_password_hash
 
+from . import queries
 from .db import get_db
-from .security import client_ip, limiter
+from .security import client_ip, limiter, same
 from .utils import DEFAULT_TZ, local_today, ts, days_ago, zone
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -43,7 +43,7 @@ def login():
     if request.method == "POST":
         if not limiter.allow(f"admin:{client_ip()}", 5, 900):
             flash("Too many attempts. Wait 15 minutes.", "error")
-        elif hmac.compare_digest(request.form.get("password", ""), current_app.config["ADMIN_PASSWORD"]):
+        elif same(request.form.get("password", ""), current_app.config["ADMIN_PASSWORD"]):
             session["admin"] = True
             session.permanent = True
             return redirect(url_for("admin.index"))
@@ -97,7 +97,7 @@ def _tenant_or_404(tenant_id: int):
 def extend(tid):
     tenant = _tenant_or_404(tid)
     today = local_today(zone(DEFAULT_TZ))
-    months = int(request.form.get("months", "1"))
+    months = 12 if request.form.get("months") == "12" else 1
     base = max(date.fromisoformat(tenant["paid_until"]), today)
     until = add_months(base, months)
     db = get_db()
@@ -139,6 +139,7 @@ def reset_password(tid):
     db = get_db()
     with db:
         db.execute("UPDATE tenants SET password_hash = ? WHERE id = ?", (generate_password_hash(password), tid))
+    queries.session_key(db, tid, rotate=True)
     flash(f"New password for {tenant['email']}: {password} — send it to the owner and ask them to change it.")
     return redirect(url_for("admin.index"))
 
@@ -148,5 +149,6 @@ def open_as(tid):
     """Look at a car wash's app exactly as the owner sees it (support)."""
     _tenant_or_404(tid)
     session["tenant_id"] = tid
+    session["key"] = queries.session_key(get_db(), tid)
     return redirect(url_for("owner.board"))
 

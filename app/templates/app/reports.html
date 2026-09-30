@@ -59,6 +59,7 @@
 <section class="card">
   <h2>Services</h2>
   {% if r.services %}
+  <div class="table-wrap">
   <table>
     <thead><tr><th>Service</th><th>Cars</th><th>Revenue</th></tr></thead>
     <tbody>
@@ -67,6 +68,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}<p class="muted">No cars in this period.</p>{% endif %}
 </section>
 

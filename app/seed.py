@@ -1,5 +1,6 @@
 """Default price list for new car washes, and generated data for demo sandboxes."""
 import random
+import secrets
 from datetime import datetime, time, timedelta
 
 from . import queries
@@ -29,13 +30,15 @@ def create_tenant(db, *, name, email=None, password_hash=None, phone="", city=""
     today = local_today(zone(DEFAULT_TZ))
     cur = db.execute(
         "INSERT INTO tenants (name, email, password_hash, phone, city, msg_ready, msg_review, "
-        "loyalty_every, paid_until, is_demo, theme, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "loyalty_every, paid_until, is_demo, theme, session_key, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             name, email, password_hash, phone, city, MSG_READY, MSG_REVIEW,
             6 if is_demo else 0,
             (today + timedelta(days=trial_days)).isoformat(),
             1 if is_demo else 0,
             theme,
+            secrets.token_urlsafe(16),
             ts(),
         ),
     )
@@ -60,6 +63,7 @@ def seed_price_list(db, tenant_id: int):
 
 # --- demo ---------------------------------------------------------------------
 
+DEMO_HOURS = 24
 DEMO_WASHERS = [  # name, pay type, pay value, speed factor
     ("Sipho", "percent", 30, 0.85),
     ("Thabo", "percent", 30, 1.0),
@@ -143,6 +147,7 @@ def create_demo(db, now=None, theme="") -> int:
     arrivals.sort()
 
     loyalty_count: dict[int, int] = {}
+    busy_until: dict[int, datetime] = {}
     service_names = list(MAIN_SERVICES)
     for created in arrivals:
         vehicle_id, type_index, _ = rng.choices(vehicles, weights=[v[2] for v in vehicles])[0]
@@ -158,8 +163,9 @@ def create_demo(db, now=None, theme="") -> int:
         started = created + timedelta(minutes=rng.randint(0, 25))
         ready = started + timedelta(minutes=minutes)
         collected = ready + timedelta(minutes=rng.randint(3, 40))
-        if collected > now:
+        if collected > now or created < busy_until.get(vehicle_id, created):
             continue
+        busy_until[vehicle_id] = collected
         review = collected + timedelta(minutes=1) if rng.random() < 0.4 else None
 
         paid_so_far = loyalty_count.get(vehicle_id, 0)
@@ -178,16 +184,18 @@ def create_demo(db, now=None, theme="") -> int:
 
     # cars on the board right now
     board = [("queued", 9), ("queued", 3), ("washing", 24), ("washing", 12), ("ready", 41)]
-    for status, age in board:
-        vehicle_id, type_index, _ = rng.choice(vehicles)
+    idle = [v for v in vehicles if busy_until.get(v[0], now) <= now - timedelta(minutes=45)]
+    for (status, age), (vehicle_id, type_index, _) in zip(board, rng.sample(idle, len(board))):
         main = rng.choice(["Wash & Go", "Wash & Vac", "Wash & Vac", "Full Valet"])
         type_id = types[type_index]
         created = now - timedelta(minutes=age)
+        is_free = loyalty_count.get(vehicle_id, 0) >= 5
         visit = {"started_at": None, "ready_at": None, "collected_at": None}
         cur = db.execute(
-            "INSERT INTO visits (tenant_id, vehicle_id, car_type_id, phone, price_cents, status, created_at) "
-            "SELECT ?, id, ?, phone, ?, 'queued', ? FROM vehicles WHERE id = ?",
-            (tenant_id, type_id, matrix[services[main]][type_id], ts(created), vehicle_id),
+            "INSERT INTO visits (tenant_id, vehicle_id, car_type_id, phone, price_cents, is_free, status, created_at) "
+            "SELECT ?, id, ?, phone, ?, ?, 'queued', ? FROM vehicles WHERE id = ?",
+            (tenant_id, type_id, 0 if is_free else matrix[services[main]][type_id], int(is_free), ts(created),
+             vehicle_id),
         )
         visit_id = cur.lastrowid
         queries.set_services(db, visit_id, [services[main]], matrix, type_id)
@@ -200,9 +208,13 @@ def create_demo(db, now=None, theme="") -> int:
     return tenant_id
 
 
-def cleanup_demos(db, max_age_hours=24, keep_at_most=300):
-    cutoff = ts(now_utc() - timedelta(hours=max_age_hours))
-    db.execute("DELETE FROM tenants WHERE is_demo = 1 AND created_at < ?", (cutoff,))
+def demo_cutoff(max_age_hours=DEMO_HOURS) -> str:
+    """Demos created before this moment are gone."""
+    return ts(now_utc() - timedelta(hours=max_age_hours))
+
+
+def cleanup_demos(db, max_age_hours=DEMO_HOURS, keep_at_most=300):
+    db.execute("DELETE FROM tenants WHERE is_demo = 1 AND created_at < ?", (demo_cutoff(max_age_hours),))
     db.execute(
         "DELETE FROM tenants WHERE is_demo = 1 AND id NOT IN "
         "(SELECT id FROM tenants WHERE is_demo = 1 ORDER BY id DESC LIMIT ?)",

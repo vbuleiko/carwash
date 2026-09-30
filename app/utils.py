@@ -97,6 +97,11 @@ def money_input(cents) -> str:
     return f"{rands}.{c:02d}" if c else str(rands)
 
 
+def is_number(text: str | None) -> bool:
+    """Plain digits that fit in an SQLite integer (ids, percentages, counts)."""
+    return bool(re.fullmatch(r"[0-9]{1,9}", text or ""))
+
+
 def parse_money(value: str | None) -> int | None:
     """'120', '120.50', 'R 1 200,50' -> cents. None if empty or invalid."""
     text = re.sub(r"[Rr\s]", "", value or "")
@@ -104,8 +109,9 @@ def parse_money(value: str | None) -> int | None:
         return None
     if re.fullmatch(r"\d+,\d{1,2}", text):
         text = text.replace(",", ".")
-    text = text.replace(",", "")
-    if not re.fullmatch(r"\d+(\.\d{1,2})?", text):
+    elif re.fullmatch(r"\d{1,3}(,\d{3})+(\.\d{1,2})?", text):
+        text = text.replace(",", "")
+    if not re.fullmatch(r"\d{1,7}(\.\d{1,2})?", text):
         return None
     rands, _, c = text.partition(".")
     return int(rands) * 100 + int((c + "00")[:2])
@@ -120,17 +126,23 @@ def normalize_phone(raw: str | None, country_code: str = "27") -> str:
     if not digits:
         return ""
     if raw.startswith("+"):
-        return digits
-    if digits.startswith("00"):
-        return digits[2:]
-    if digits.startswith("0"):
-        return country_code + digits[1:]
-    if digits.startswith(country_code) and len(digits) >= len(country_code) + 8:
-        return digits
-    return country_code + digits
+        number = digits
+    elif digits.startswith("00"):
+        number = digits[2:]
+    elif digits.startswith("0"):
+        number = country_code + digits[1:]
+    elif digits.startswith(country_code) and len(digits) >= len(country_code) + 8:
+        number = digits
+    else:
+        number = country_code + digits
+    if number.startswith(country_code + "0"):  # '+27 (0)82 ...'
+        number = country_code + number[len(country_code) + 1:]
+    return number
 
 
 def phone_is_valid(digits: str) -> bool:
+    if digits.startswith("27"):
+        return len(digits) == 11
     return 8 <= len(digits) <= 15
 
 

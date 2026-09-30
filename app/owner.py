@@ -16,12 +16,13 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import queries, reports, themes
+from . import queries, reports, seed, themes
 from .db import get_db
 from .utils import (
     TIMEZONES,
     clean_plate,
     format_phone,
+    is_number,
     iso_z,
     local_today,
     money_input,
@@ -45,11 +46,17 @@ def load_tenant():
         return redirect(url_for("public.login", next=request.path if request.method == "GET" else None))
     db = get_db()
     tenant = db.execute("SELECT * FROM tenants WHERE id = ?", (tenant_id,)).fetchone()
-    if tenant is None or tenant["is_disabled"]:
+    if tenant is None or not tenant["session_key"] or session.get("key") != tenant["session_key"]:
         session.pop("tenant_id", None)
-        if tenant is not None:
-            flash("This account is paused. Please contact support.", "error")
         return redirect(url_for("public.login"))
+    if tenant["is_disabled"]:
+        session.pop("tenant_id", None)
+        flash("This account is paused. Please contact support.", "error")
+        return redirect(url_for("public.login"))
+    if tenant["is_demo"] and tenant["created_at"] < seed.demo_cutoff():
+        session.pop("tenant_id", None)
+        flash("That demo has ended. Here's a fresh one whenever you like.")
+        return redirect(url_for("public.landing"))
     g.tenant = tenant
     g.tz = zone(tenant["timezone"])
     g.today = local_today(g.tz)
@@ -135,11 +142,11 @@ def _read_visit_form(db, visit=None):
     )
     type_ids = {t["id"] for t in car_types}
     service_ids = {s["id"] for s in services}
-    car_type_id = int(f["car_type_id"]) if f.get("car_type_id", "").isdigit() else None
+    car_type_id = int(f["car_type_id"]) if is_number(f.get("car_type_id")) else None
     if car_type_id not in type_ids:
         errors.append("Choose the car type.")
         car_type_id = None
-    chosen = [int(x) for x in f.getlist("service_id") if x.isdigit() and int(x) in service_ids]
+    chosen = [int(x) for x in f.getlist("service_id") if is_number(x) and int(x) in service_ids]
     if not chosen:
         errors.append("Choose at least one service.")
 
@@ -251,6 +258,9 @@ def new_visit():
 def visit(vid):
     db = get_db()
     v = _visit_or_404(vid)
+    if request.method == "POST" and not g.sub["active"]:
+        flash("Your subscription has ended, so visits can't be changed. Your data is safe.", "error")
+        return redirect(url_for(".visit", vid=vid))
     if request.method == "POST":
         data, errors, matrix = _read_visit_form(db, v)
         status = request.form.get("status", v["status"])
@@ -276,7 +286,7 @@ def visit(vid):
                 queries.apply_updates(db, vid, updates)
                 if sorted(data["service_ids"]) != sorted(v["service_ids"]) or data["car_type_id"] != v["car_type_id"]:
                     queries.set_services(db, vid, data["service_ids"], matrix, data["car_type_id"])
-                washer_ids = [int(x) for x in request.form.getlist("washer_id") if x.isdigit()]
+                washer_ids = [int(x) for x in request.form.getlist("washer_id") if is_number(x)]
                 queries.set_washers(db, _tid(), vid, washer_ids)
             flash("Saved.")
             return redirect(url_for(".board") if status in ("queued", "washing", "ready") else url_for(".visit", vid=vid))
@@ -306,8 +316,10 @@ def visit(vid):
 def start(vid):
     db = get_db()
     v = _visit_or_404(vid)
+    washer_ids = [x for x in request.form.getlist("washer_id") if is_number(x)]
     with db:
-        queries.set_washers(db, _tid(), vid, [x for x in request.form.getlist("washer_id") if x.isdigit()])
+        if washer_ids:
+            queries.set_washers(db, _tid(), vid, washer_ids)
         if v["status"] == "queued":
             queries.apply_updates(db, vid, queries.status_updates(v, "washing"))
     return _done()
@@ -416,6 +428,10 @@ def car(car_id):
                     "UPDATE vehicles SET plate = ?, plate_key = ?, make = ?, phone = ? WHERE id = ?",
                     (plate, plate_key(plate), request.form.get("make", "").strip()[:40], phone, car_id),
                 )
+                db.execute(
+                    "UPDATE visits SET phone = ? WHERE vehicle_id = ? AND status IN ('queued', 'washing', 'ready')",
+                    (phone, car_id),
+                )
             flash("Saved.")
         return redirect(url_for(".car", car_id=car_id))
     rows = db.execute(
@@ -430,7 +446,7 @@ def car(car_id):
         total=sum(v["price_cents"] for v in counted),
         count=len(counted),
         loyalty=queries.loyalty(db, g.tenant, car_id),
-        chat_link=wa_link(vehicle["phone"]) if vehicle["phone"] else "",
+        chat_link=queries.chat_link(g.tenant, vehicle["phone"]) if vehicle["phone"] else "",
     )
 
 
@@ -460,13 +476,13 @@ def settings_business():
         name = f.get("name", "").strip()[:60]
         review_url = f.get("review_url", "").strip()[:300]
         loyalty_every = f.get("loyalty_every", "0").strip() or "0"
-        country_code = re.sub(r"\D", "", f.get("country_code", "")) or "27"
+        country_code = re.sub(r"\D", "", f.get("country_code", "")).lstrip("0") or "27"
         errors = []
         if not name:
             errors.append("Enter your business name.")
         if review_url and not review_url.startswith(("https://", "http://")):
             errors.append("The review link should start with https://")
-        if not loyalty_every.isdigit() or not (int(loyalty_every) == 0 or 2 <= int(loyalty_every) <= 50):
+        if not is_number(loyalty_every) or not (int(loyalty_every) == 0 or 2 <= int(loyalty_every) <= 50):
             errors.append("Loyalty: use 0 (off) or a number from 2 to 50.")
         if f.get("timezone") not in TIMEZONES:
             errors.append("Choose a time zone.")
@@ -549,7 +565,7 @@ def settings_staff():
             pay_type = "fixed" if f.get(f"{prefix}_pay_type") == "fixed" else "percent"
             raw = f.get(f"{prefix}_pay_value", "").strip().rstrip("%").strip() or "0"
             if pay_type == "percent":
-                value = int(raw) if raw.isdigit() and int(raw) <= 100 else None
+                value = int(raw) if is_number(raw) and int(raw) <= 100 else None
             else:
                 value = parse_money(raw)
             return pay_type, value
@@ -608,6 +624,7 @@ def settings_account():
         else:
             with db:
                 db.execute("UPDATE tenants SET password_hash = ? WHERE id = ?", (generate_password_hash(new), _tid()))
-            flash("Password changed.")
+            session["key"] = queries.session_key(db, _tid(), rotate=True)
+            flash("Password changed. Other phones are logged out.")
         return redirect(url_for(".settings_account"))
     return render_template("app/settings_account.html")

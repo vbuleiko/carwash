@@ -4,7 +4,7 @@
 {% block content %}
 <form class="search" method="get">
   {{ icon('search') }}
-  <input type="search" name="q" value="{{ q }}" placeholder="Plate, phone or make" autocapitalize="characters" autocomplete="off">
+  <input type="search" name="q" value="{{ q }}" placeholder="Plate, phone or make" aria-label="Search cars" autocapitalize="characters" autocomplete="off">
 </form>
 
 {% if q %}

@@ -41,6 +41,13 @@
   tick();
   setInterval(tick, 30000);
 
+  // GET again (never re-send a form this page came from), or say the tap was not saved
+  function refresh() { location.replace(location.href); }
+  function notSaved() { alert("That wasn't saved. Check your internet connection and try again."); }
+  function markThen(url, delay) {
+    post(url).then((r) => (r.ok ? setTimeout(refresh, delay) : notSaved())).catch(notSaved);
+  }
+
   // --- demo: show WhatsApp text instead of opening WhatsApp -------------------
   const preview = document.getElementById("preview-dialog");
   let previewMark = null;
@@ -50,7 +57,7 @@
     preview.showModal();
   }
   document.getElementById("preview-ok")?.addEventListener("click", () => {
-    if (previewMark) post(previewMark).then(() => location.reload());
+    if (previewMark) markThen(previewMark, 0);
     else preview.close();
   });
 
@@ -83,7 +90,7 @@
         return;
       }
       // let the link open WhatsApp; update the board when the owner comes back
-      post(mark.dataset.mark).finally(() => setTimeout(() => location.reload(), 1500));
+      markThen(mark.dataset.mark, 1500);
       return;
     }
 
@@ -105,7 +112,9 @@
   const data = JSON.parse(document.getElementById("price-data").textContent);
   const price = form.querySelector("#price");
   const free = form.querySelector("#is_free");
-  let manual = form.dataset.mode === "edit";
+  // a typed price (or one sent back after a form error) is kept until services change
+  let manual = form.dataset.mode === "edit" || price.value.trim() !== "";
+  let beforeFree = null;
 
   price.addEventListener("input", () => { manual = price.value.trim() !== ""; });
 
@@ -119,16 +128,21 @@
       if (cb.checked) total += p || 0;
     });
     if (free.checked) {
+      if (!price.readOnly) beforeFree = price.value;
       price.value = "0";
       price.readOnly = true;
       return;
+    }
+    if (price.readOnly) {
+      if (beforeFree && beforeFree !== "0") price.value = beforeFree;
+      else manual = false;
+      beforeFree = null;
     }
     price.readOnly = false;
     if (!manual) price.value = total ? (total % 100 ? (total / 100).toFixed(2) : String(total / 100)) : "";
   }
 
   form.addEventListener("change", (e) => {
-    if (e.target === free && !free.checked) manual = false;
     if (e.target.name === "service_id" || e.target.name === "car_type_id") manual = false;
     recalc();
   });
@@ -139,38 +153,67 @@
   const info = document.getElementById("lookup-info");
   let timer = null;
   let lastQuery = "";
+  let auto = null; // what the last match filled in, so a corrected plate takes it back
+
+  function undoAuto() {
+    if (!auto) return;
+    auto.fields.forEach(([el, value]) => { if (el.value === value) el.value = ""; });
+    auto.boxes.forEach(([el, was]) => { el.checked = was; });
+    auto = null;
+  }
 
   function fillIfEmpty(sel, value) {
     const el = form.querySelector(sel);
-    if (el && !el.value.trim() && value) el.value = value;
+    if (el && !el.value.trim() && value) {
+      el.value = value;
+      auto.fields.push([el, value]);
+    }
+  }
+
+  function autoCheck(el) {
+    if (el && !el.checked) {
+      auto.boxes.push([el, false]);
+      el.checked = true;
+    }
   }
 
   async function lookup() {
     const q = plate.value.trim();
-    if (q.replace(/[^a-z0-9]/gi, "").length < 3 || q === lastQuery) {
-      if (q.replace(/[^a-z0-9]/gi, "").length < 3) info.hidden = true;
+    if (q.replace(/[^a-z0-9]/gi, "").length < 3) {
+      lastQuery = "";
+      info.hidden = true;
+      undoAuto();
+      recalc();
       return;
     }
+    if (q === lastQuery) return;
     lastQuery = q;
     let d;
     try {
       const r = await fetch(form.dataset.lookup + "?plate=" + encodeURIComponent(q), { credentials: "same-origin" });
       d = await r.json();
     } catch (_) { return; }
-    if (!d.found) { info.hidden = true; return; }
+    if (plate.value.trim() !== q) return; // the plate changed while we waited
+    undoAuto();
+    if (!d.found) {
+      info.hidden = true;
+      recalc();
+      return;
+    }
 
+    auto = { fields: [], boxes: [] };
     fillIfEmpty("#make", d.make);
     fillIfEmpty("#phone", d.phone_display);
     if (d.car_type_id) {
       const radio = form.querySelector('input[name="car_type_id"][value="' + d.car_type_id + '"]');
-      if (radio) radio.checked = true;
+      const current = form.querySelector('input[name="car_type_id"]:checked');
+      if (radio && !radio.checked) {
+        auto.boxes.push(current ? [current, true] : [radio, false]);
+        radio.checked = true;
+      }
     }
-    const anyService = form.querySelector('input[name="service_id"]:checked');
-    if (!anyService) {
-      d.last_service_ids.forEach((id) => {
-        const cb = form.querySelector('input[name="service_id"][value="' + id + '"]');
-        if (cb) cb.checked = true;
-      });
+    if (!form.querySelector('input[name="service_id"]:checked')) {
+      d.last_service_ids.forEach((id) => autoCheck(form.querySelector('input[name="service_id"][value="' + id + '"]')));
     }
 
     info.textContent = "";
@@ -181,7 +224,7 @@
     if (l.every) {
       if (l.next_free) {
         info.append(" · this wash is FREE (every " + ordinal(l.every) + ")");
-        free.checked = true;
+        autoCheck(free);
       } else {
         info.append(" · loyalty " + l.count + "/" + l.needed);
       }
@@ -195,4 +238,5 @@
     timer = setTimeout(lookup, 350);
   });
   plate.addEventListener("blur", lookup);
+  if (plate.value.trim()) lookup();
 })();

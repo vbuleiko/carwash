@@ -21,13 +21,13 @@
   {% endfor %}
 
   <section class="card staff-row">
-    <input name="new_name" placeholder="+ New washer's name" maxlength="30" class="strong">
+    <input name="new_name" placeholder="+ New washer's name" maxlength="30" class="strong" aria-label="New washer's name">
     <div class="pay">
       <select name="new_pay_type" aria-label="Pay type">
         <option value="percent">% of price</option>
         <option value="fixed">R per car</option>
       </select>
-      <input name="new_pay_value" placeholder="30" inputmode="decimal" aria-label="Pay amount">
+      <input name="new_pay_value" value="30" inputmode="decimal" aria-label="Pay amount">
     </div>
   </section>
 

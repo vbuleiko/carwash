@@ -30,6 +30,8 @@
   <div class="chips">
     {% for t in car_types %}
     <label class="chip"><input type="radio" name="car_type_id" value="{{ t.id }}" {{ 'checked' if form.car_type_id|string == t.id|string }} required><span>{{ t.name }}</span></label>
+    {% else %}
+    <p class="empty">No car types in use. <a href="{{ url_for('owner.settings_prices') }}">Turn one on in the price list</a>.</p>
     {% endfor %}
   </div>
 </fieldset>
@@ -40,6 +42,8 @@
     {% set chosen = form.service_ids|map('string')|list %}
     {% for s in services %}
     <label class="chip"><input type="checkbox" name="service_id" value="{{ s.id }}" {{ 'checked' if s.id|string in chosen }}><span>{{ s.name }} <small class="chip-price"></small></span></label>
+    {% else %}
+    <p class="empty">No services in use. <a href="{{ url_for('owner.settings_prices') }}">Turn one on in the price list</a>.</p>
     {% endfor %}
   </div>
 </fieldset>

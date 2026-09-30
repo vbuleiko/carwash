@@ -6,6 +6,7 @@ from app.utils import (
     money,
     normalize_phone,
     parse_money,
+    phone_is_valid,
     plate_key,
     local_today,
     ts,
@@ -43,7 +44,11 @@ def test_phone_normalisation():
     assert normalize_phone("27821234567") == "27821234567"
     assert normalize_phone("0027821234567") == "27821234567"
     assert normalize_phone("821234567") == "27821234567"
+    assert normalize_phone("+27 (0)82 123 4567") == "27821234567"
+    assert normalize_phone("27 082 123 4567") == "27821234567"
     assert normalize_phone("") == ""
+    assert phone_is_valid("27821234567") and phone_is_valid("447911123456")
+    assert not phone_is_valid("2782123456")
 
 
 def test_money_parsing_and_formatting():
@@ -52,6 +57,9 @@ def test_money_parsing_and_formatting():
     assert parse_money("R 1 200,50") == 120050
     assert parse_money("1,200") == 120000
     assert parse_money("abc") is None
+    assert parse_money(",50") is None
+    assert parse_money("99999999999999999999") is None
+    assert parse_money("1,234.50") == 123450
     assert parse_money("") is None
     assert money(120000) == "R1,200"
     assert money(12050) == "R120.50"
@@ -191,6 +199,20 @@ def test_edit_visit_and_move_status_back(owner, db):
     owner.post(f"/app/visit/{v['id']}/delete")
     assert db.execute("SELECT COUNT(*) FROM visits").fetchone()[0] == 0
 
+def test_team_can_be_cleared_and_start_keeps_it(owner, db):
+    tid = tenant_id(db)
+    owner.post("/app/settings/staff", {"new_name": "Sipho", "new_pay_type": "percent", "new_pay_value": "30"})
+    washer = db.execute("SELECT id FROM washers").fetchone()[0]
+    v = add_car(owner, db)
+    form = {"plate": "CA 123-456", "phone": "082 111 2222", "car_type_id": ids(db, "car_types", tid)[0],
+            "service_id": ids(db, "services", tid)[0], "price": "", "status": "queued"}
+    owner.post(f"/app/visit/{v['id']}", {**form, "washer_id": washer})
+    owner.post(f"/app/visit/{v['id']}/start")
+    assert db.execute("SELECT COUNT(*) FROM visit_washers").fetchone()[0] == 1
+    owner.post(f"/app/visit/{v['id']}", {**form, "status": "washing"})
+    assert db.execute("SELECT COUNT(*) FROM visit_washers").fetchone()[0] == 0
+
+
 
 def test_car_wash_cannot_see_another_car_wash(app, owner, db):
     v = add_car(owner, db)
@@ -282,6 +304,26 @@ def test_change_password(owner, db):
     owner.get("/login")
     assert owner.post("/login", {"email": "owner@example.com", "password": "newpass123"}).status_code == 302
 
+def test_old_login_cookie_never_opens_another_car_wash(app, owner, db):
+    tid = tenant_id(db)
+    with db:
+        db.execute("DELETE FROM tenants WHERE id = ?", (tid,))
+    newcomer = Browser(app.test_client())
+    signup(newcomer, email="new@example.com", name="New Wash")
+    assert tenant_id(db, "new@example.com") == tid  # SQLite hands out the same id again
+    resp = owner.get("/app/")
+    assert resp.status_code == 302 and "/login" in resp.location
+
+
+def test_password_change_logs_out_other_phones(app, owner, db):
+    other = Browser(app.test_client())
+    other.post("/login", {"email": "owner@example.com", "password": "secret123"})
+    assert other.get("/app/").status_code == 200
+    owner.post("/app/settings/account", {"current": "secret123", "new": "newpass123"})
+    assert owner.get("/app/").status_code == 200
+    assert other.get("/app/").status_code == 302
+
+
 
 def test_expired_subscription_blocks_new_cars(owner, db):
     with db:
@@ -338,6 +380,24 @@ def test_demo_sandbox(app, browser, db):
         seed.cleanup_demos(db)
     assert db.execute("SELECT COUNT(*) FROM tenants").fetchone()[0] == 0
     assert db.execute("SELECT COUNT(*) FROM visits").fetchone()[0] == 0
+
+def test_old_demo_ends_and_limits_are_shared(app, browser, db):
+    browser.post("/demo")
+    with db:
+        db.execute("UPDATE tenants SET created_at = '2000-01-01 00:00:00' WHERE is_demo = 1")
+    resp = browser.get("/app/")
+    assert resp.status_code == 302 and resp.location.endswith("/")
+    browser.get("/")
+    browser.post("/demo")
+    assert db.execute("SELECT COUNT(*) FROM tenants WHERE is_demo = 1").fetchone()[0] == 1
+
+    app.config["RATELIMIT_ENABLED"] = True
+    with app.test_request_context():
+        from app.security import limiter
+        assert limiter.allow("t", 2, 60) and limiter.allow("t", 2, 60)
+        assert not limiter.allow("t", 2, 60)
+    assert db.execute("SELECT COUNT(*) FROM rate_hits WHERE key = 't'").fetchone()[0] == 2
+
 
 
 def test_admin(app, owner, db):

@@ -1,5 +1,6 @@
 """Landing page, sign up / log in, and the no-signup demo."""
 import re
+import sqlite3
 
 from flask import (
     Blueprint,
@@ -14,7 +15,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import seed, themes
+from . import queries, seed, themes
 from .db import get_db
 from .security import client_ip, limiter
 from .utils import normalize_phone, phone_is_valid
@@ -25,10 +26,12 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def _start_session(tenant_id: int):
+    key = queries.session_key(get_db(), tenant_id)
     csrf = session.get("csrf")
     session.clear()
     session.permanent = True
     session["tenant_id"] = tenant_id
+    session["key"] = key
     if csrf:
         session["csrf"] = csrf
 
@@ -62,12 +65,16 @@ def signup():
         if not errors and not limiter.allow(f"signup:{client_ip()}", 5, 3600):
             errors.append("Too many sign-ups from this network. Try again in an hour.")
         if not errors:
-            with db:
-                tenant_id = seed.create_tenant(
-                    db, name=name, email=email, password_hash=generate_password_hash(password),
-                    phone=phone, city=form.get("city", "").strip()[:60],
-                    trial_days=current_app.config["TRIAL_DAYS"], theme=themes.picked(),
-                )
+            try:
+                with db:
+                    tenant_id = seed.create_tenant(
+                        db, name=name, email=email, password_hash=generate_password_hash(password),
+                        phone=phone, city=form.get("city", "").strip()[:60],
+                        trial_days=current_app.config["TRIAL_DAYS"], theme=themes.picked(),
+                    )
+            except sqlite3.IntegrityError:  # the same form sent twice
+                flash("This email already has an account. Log in instead.", "error")
+                return render_template("public/signup.html", form=form)
             _start_session(tenant_id)
             flash(f"Welcome! Your {current_app.config['TRIAL_DAYS']}-day free trial has started.")
             return redirect(url_for("owner.board"))
@@ -92,7 +99,7 @@ def login():
             else:
                 _start_session(tenant["id"])
                 target = request.args.get("next", "")
-                return redirect(target if target.startswith("/app") else url_for("owner.board"))
+                return redirect(target if target.startswith("/app") and target.isprintable() else url_for("owner.board"))
         else:
             flash("Wrong email or password.", "error")
         return render_template("public/login.html", email=email)
@@ -109,14 +116,18 @@ def logout():
 def demo():
     db = get_db()
     current = session.get("tenant_id")
-    if current and db.execute("SELECT 1 FROM tenants WHERE id = ? AND is_demo = 1", (current,)).fetchone():
+    if current and db.execute(
+        "SELECT 1 FROM tenants WHERE id = ? AND is_demo = 1 AND session_key = ? AND session_key != '' "
+        "AND created_at >= ?",
+        (current, session.get("key", ""), seed.demo_cutoff()),
+    ).fetchone():
         return redirect(url_for("owner.board"))
     if not limiter.allow(f"demo:{client_ip()}", 10, 3600):
         flash("Too many demos from this network. Try again later.", "error")
         return redirect(url_for("public.landing"))
     with db:
-        seed.cleanup_demos(db)
         tenant_id = seed.create_demo(db, theme=themes.picked())
+        seed.cleanup_demos(db)
     _start_session(tenant_id)
     return redirect(url_for("owner.board"))
 

@@ -53,20 +53,22 @@ def build(db, tenant, tz, key: str) -> dict:
         f"JOIN services s ON s.id = vs.service_id WHERE vs.visit_id IN ({in_period})",
         args,
     ):
-        visits[r["visit_id"]]["services"].append(dict(r))
+        if r["visit_id"] in visits:
+            visits[r["visit_id"]]["services"].append(dict(r))
     for r in db.execute(
         "SELECT vw.visit_id, vw.washer_id, vw.pay_type, vw.pay_value FROM visit_washers vw "
         f"WHERE vw.visit_id IN ({in_period})",
         args,
     ):
-        visits[r["visit_id"]]["team"].append(dict(r))
+        if r["visit_id"] in visits:
+            visits[r["visit_id"]]["team"].append(dict(r))
 
-    # wash time per visit, and the typical time for the same job (services + car type)
+    # wash time per visit, and the typical time for the same job (services + car type + team size)
     by_job = defaultdict(list)
     for v in visits.values():
         m = minutes_between(v["started_at"], v["ready_at"])
         v["minutes"] = m if m is not None and MIN_WASH <= m <= MAX_WASH else None
-        v["job"] = (tuple(sorted(s["service_id"] for s in v["services"])), v["car_type_id"])
+        v["job"] = (tuple(sorted(s["service_id"] for s in v["services"])), v["car_type_id"], len(v["team"]))
         if v["minutes"] is not None:
             by_job[v["job"]].append(v["minutes"])
     typical = {job: mean(ms) for job, ms in by_job.items()}

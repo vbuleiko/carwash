@@ -14,7 +14,7 @@
 
 {% if v.phone %}
 <section class="row wrap-row">
-  <a class="btn wa" href="{{ v.wa_ready }}" target="_blank" rel="noopener" data-msg="{{ v.msg_ready }}" data-preview>{{ icon('chat') }} Send "ready" message</a>
+  <a class="btn wa" href="{{ v.wa_ready }}" target="_blank" rel="noopener" data-mark="{{ url_for('owner.ready', vid=v.id) }}" data-msg="{{ v.msg_ready }}">{{ icon('chat') }} Send "ready" message</a>
   {% if v.wa_review %}<a class="btn" href="{{ v.wa_review }}" target="_blank" rel="noopener" data-mark="{{ url_for('owner.review', vid=v.id) }}" data-msg="{{ v.msg_review }}">{{ icon('star') }} Ask review</a>{% endif %}
   <a class="link" href="{{ url_for('owner.car', car_id=v.vehicle_id) }}">Car history →</a>
 </section>

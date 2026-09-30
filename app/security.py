@@ -1,10 +1,11 @@
-"""CSRF protection and a tiny in-memory rate limiter."""
+"""CSRF protection and a small rate limiter shared by all workers."""
 import hmac
 import secrets
 import time
-from collections import defaultdict, deque
 
 from flask import abort, current_app, request, session
+
+from .db import get_db
 
 
 def csrf_token() -> str:
@@ -20,28 +21,29 @@ def check_csrf():
         return
     sent = request.form.get("csrf") or request.headers.get("X-CSRF", "")
     token = session.get("csrf", "")
-    if not token or not hmac.compare_digest(sent, token):
+    if not token or not same(sent, token):
         abort(400, "This form has expired. Go back, refresh the page and try again.")
 
 
-class RateLimiter:
-    """Per-process sliding window. Good enough for a single small VM."""
+def same(a: str, b: str) -> bool:
+    return hmac.compare_digest(a.encode(), b.encode())
 
-    def __init__(self):
-        self.hits: dict[str, deque] = defaultdict(deque)
+
+class RateLimiter:
+    """Sliding window stored in SQLite, so every gunicorn worker counts the same hits."""
 
     def allow(self, key: str, limit: int, window_seconds: int) -> bool:
         if not current_app.config.get("RATELIMIT_ENABLED", True):
             return True
-        now = time.monotonic()
-        if len(self.hits) > 10_000:
-            self.hits.clear()
-        q = self.hits[key]
-        while q and q[0] <= now - window_seconds:
-            q.popleft()
-        if len(q) >= limit:
-            return False
-        q.append(now)
+        db, now = get_db(), time.time()
+        with db:
+            db.execute("DELETE FROM rate_hits WHERE at <= ?", (now - 86400,))
+            hits = db.execute(
+                "SELECT COUNT(*) FROM rate_hits WHERE key = ? AND at > ?", (key, now - window_seconds)
+            ).fetchone()[0]
+            if hits >= limit:
+                return False
+            db.execute("INSERT INTO rate_hits (key, at) VALUES (?, ?)", (key, now))
         return True
 
 

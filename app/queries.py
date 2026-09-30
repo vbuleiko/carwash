@@ -1,4 +1,5 @@
 """Data access shared by the owner app, reports and seeding."""
+import secrets
 from datetime import date
 
 from .utils import (
@@ -140,7 +141,7 @@ def set_services(db, visit_id: int, service_ids, matrix, car_type_id):
 def set_washers(db, tenant_id: int, visit_id: int, washer_ids):
     """Replace the team on a visit. Pay rules of washers already on it are kept."""
     washer_ids = [int(w) for w in washer_ids]
-    marks = ",".join("?" * len(washer_ids)) or "NULL"
+    marks = ",".join("?" * len(washer_ids))
     db.execute(
         f"DELETE FROM visit_washers WHERE visit_id = ? AND washer_id NOT IN ({marks})",
         (visit_id, *washer_ids),
@@ -214,14 +215,29 @@ def review_message(tenant, visit) -> str:
     return fill_template(tenant["msg_review"], message_values(tenant, visit))
 
 
+def chat_link(tenant, phone: str, text: str = "") -> str:
+    """wa.me link; demo phone numbers are random but real-looking, so demos never link out."""
+    return "#" if tenant["is_demo"] else wa_link(phone, text)
+
+
 def add_links(tenant, visit: dict) -> dict:
     """Attach WhatsApp texts/links used by the board and visit pages."""
     visit["phone_display"] = format_phone(visit["phone"])
     visit["msg_ready"] = ready_message(tenant, visit)
     visit["msg_review"] = review_message(tenant, visit)
     if visit["phone"]:
-        visit["wa_ready"] = wa_link(visit["phone"], visit["msg_ready"])
-        visit["wa_review"] = wa_link(visit["phone"], visit["msg_review"]) if tenant["review_url"] else ""
+        visit["wa_ready"] = chat_link(tenant, visit["phone"], visit["msg_ready"])
+        visit["wa_review"] = chat_link(tenant, visit["phone"], visit["msg_review"]) if tenant["review_url"] else ""
     else:
         visit["wa_ready"] = visit["wa_review"] = ""
     return visit
+
+
+def session_key(db, tenant_id: int, rotate: bool = False) -> str:
+    """Random key stored in every login cookie of this car wash; rotating it logs out all devices."""
+    key = db.execute("SELECT session_key FROM tenants WHERE id = ?", (tenant_id,)).fetchone()[0]
+    if rotate or not key:
+        key = secrets.token_urlsafe(16)
+        db.execute("UPDATE tenants SET session_key = ? WHERE id = ?", (key, tenant_id))
+        db.commit()
+    return key

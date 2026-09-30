@@ -14,7 +14,7 @@
       <label class="toggle small"><input type="checkbox" name="type_active_{{ t.id }}" value="1" {{ 'checked' if t.active }}><span>In use</span></label>
     </div>
     {% endfor %}
-    <input name="new_type" placeholder="+ Add car type (e.g. Truck)" maxlength="30">
+    <input name="new_type" placeholder="+ Add car type (e.g. Truck)" maxlength="30" aria-label="New car type">
   </section>
 
   {% for s in services %}
@@ -36,7 +36,7 @@
   {% endfor %}
 
   <section class="card">
-    <input name="new_service" placeholder="+ Add service (e.g. Leather treatment)" maxlength="40">
+    <input name="new_service" placeholder="+ Add service (e.g. Leather treatment)" maxlength="40" aria-label="New service">
   </section>
 
   <button class="btn primary big wide">Save price list</button>

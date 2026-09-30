@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     msg_review    TEXT NOT NULL DEFAULT '',
     loyalty_every INTEGER NOT NULL DEFAULT 0,      -- 0 = off, 6 = every 6th wash free
     theme         TEXT NOT NULL DEFAULT '',        -- '' = the site default
+    session_key   TEXT NOT NULL DEFAULT '',        -- in every login cookie; a new one logs out all devices
     plan          TEXT NOT NULL DEFAULT 'trial',   -- trial | paid
     paid_until    TEXT NOT NULL,                   -- YYYY-MM-DD, inclusive
     is_demo       INTEGER NOT NULL DEFAULT 0,
@@ -108,10 +109,29 @@ CREATE TABLE IF NOT EXISTS visit_washers (
     pay_value INTEGER NOT NULL,
     PRIMARY KEY (visit_id, washer_id)
 );
+
+-- deleting a car wash cascades through these
+CREATE INDEX IF NOT EXISTS car_types_by_tenant ON car_types (tenant_id);
+CREATE INDEX IF NOT EXISTS services_by_tenant ON services (tenant_id);
+CREATE INDEX IF NOT EXISTS washers_by_tenant ON washers (tenant_id);
+CREATE INDEX IF NOT EXISTS prices_by_car_type ON prices (car_type_id);
+CREATE INDEX IF NOT EXISTS vehicles_by_car_type ON vehicles (car_type_id);
+CREATE INDEX IF NOT EXISTS visits_by_car_type ON visits (car_type_id);
+CREATE INDEX IF NOT EXISTS visit_services_by_service ON visit_services (service_id);
+CREATE INDEX IF NOT EXISTS visit_washers_by_washer ON visit_washers (washer_id);
+
+CREATE TABLE IF NOT EXISTS rate_hits (
+    key TEXT NOT NULL,
+    at  REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS rate_hits_by_key ON rate_hits (key, at);
 """
 
 # columns added after the first release: CREATE TABLE has them, older databases get an ALTER
-ADDED_COLUMNS = [("tenants", "theme", "TEXT NOT NULL DEFAULT ''")]
+ADDED_COLUMNS = [
+    ("tenants", "theme", "TEXT NOT NULL DEFAULT ''"),
+    ("tenants", "session_key", "TEXT NOT NULL DEFAULT ''"),
+]
 
 
 def connect(path: str) -> sqlite3.Connection:
