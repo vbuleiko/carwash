@@ -1,4 +1,5 @@
 """Washbook — a car wash notebook that texts customers on WhatsApp."""
+import mimetypes
 import os
 import secrets
 import time
@@ -25,6 +26,9 @@ def _secret_key(data_dir: Path) -> str:
     with os.fdopen(fd, "w") as f:
         f.write(key)
     return key
+
+
+mimetypes.add_type("font/woff2", ".woff2")  # slim Python images have no system mime table
 
 
 def create_app(test_config: dict | None = None) -> Flask:

@@ -20,6 +20,11 @@
     return "R" + r.toLocaleString("en-US") + (c ? "." + String(c).padStart(2, "0") : "");
   }
 
+  function ordinal(n) {
+    const v = n % 100;
+    return n + (v >= 11 && v <= 13 ? "th" : { 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th");
+  }
+
   // --- "12 min" timers on the board -------------------------------------------
   function since(ms) {
     const min = Math.max(0, Math.floor(ms / 60000));
@@ -175,7 +180,7 @@
     const l = d.loyalty;
     if (l.every) {
       if (l.next_free) {
-        info.append(" · this wash is FREE (every " + l.every + "th)");
+        info.append(" · this wash is FREE (every " + ordinal(l.every) + ")");
         free.checked = true;
       } else {
         info.append(" · loyalty " + l.count + "/" + l.needed);
