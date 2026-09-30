@@ -1,0 +1,42 @@
+{% from "_macros.html" import icon %}
+<article class="card visit">
+  <a class="visit-main" href="{{ url_for('owner.visit', vid=v.id) }}">
+    <div class="visit-top">
+      <span class="plate">{{ v.plate }}</span>
+      {% if v.status != 'collected' %}<span class="since" data-since="{{ v.since }}"></span>{% else %}<span class="since">{{ v.collected_at|local }}</span>{% endif %}
+    </div>
+    <div class="visit-meta">{{ [v.make, v.car_type]|select|join(' · ') }}</div>
+    <div class="visit-meta">
+      {{ v.services|join(', ') }} ·
+      {% if v.is_free %}<b class="free">FREE</b>{% else %}<b>{{ v.price_cents|money }}</b>{% endif %}
+    </div>
+    {% if v.washers %}<div class="visit-meta">{{ v.washers|join(' & ') }}</div>{% endif %}
+    {% if v.note %}<div class="visit-note">{{ v.note }}</div>{% endif %}
+  </a>
+  <div class="visit-actions">
+    {% if v.status == 'queued' %}
+      <button type="button" class="btn" data-start="{{ url_for('owner.start', vid=v.id) }}" data-plate="{{ v.plate }}">{{ icon('play') }} Start</button>
+    {% elif v.status == 'washing' %}
+      {% if v.wa_ready %}
+        <a class="btn wa" href="{{ v.wa_ready }}" target="_blank" rel="noopener" data-mark="{{ url_for('owner.ready', vid=v.id) }}" data-msg="{{ v.msg_ready }}">{{ icon('chat') }} Ready</a>
+      {% else %}
+        <form method="post" action="{{ url_for('owner.ready', vid=v.id) }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button class="btn">{{ icon('check') }} Ready</button>
+        </form>
+      {% endif %}
+    {% elif v.status == 'ready' %}
+      <form method="post" action="{{ url_for('owner.collected', vid=v.id) }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <button class="btn primary">{{ icon('check') }} Collected</button>
+      </form>
+      {% if v.wa_ready %}<a class="link small" href="{{ v.wa_ready }}" target="_blank" rel="noopener" data-msg="{{ v.msg_ready }}" data-preview>{{ 'Message again' if v.notified_at else 'Send message' }}</a>{% endif %}
+    {% elif v.status == 'collected' %}
+      {% if v.review_requested_at %}
+        <span class="done small">{{ icon('star') }} Review asked</span>
+      {% elif v.wa_review %}
+        <a class="btn" href="{{ v.wa_review }}" target="_blank" rel="noopener" data-mark="{{ url_for('owner.review', vid=v.id) }}" data-msg="{{ v.msg_review }}">{{ icon('star') }} Ask review</a>
+      {% endif %}
+    {% endif %}
+  </div>
+</article>

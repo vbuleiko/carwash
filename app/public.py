@@ -1,0 +1,137 @@
+"""Landing page, sign up / log in, and the no-signup demo."""
+import re
+
+from flask import (
+    Blueprint,
+    Response,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from . import seed
+from .db import get_db
+from .security import client_ip, limiter
+from .utils import normalize_phone, phone_is_valid
+
+bp = Blueprint("public", __name__)
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _start_session(tenant_id: int):
+    csrf = session.get("csrf")
+    session.clear()
+    session.permanent = True
+    session["tenant_id"] = tenant_id
+    if csrf:
+        session["csrf"] = csrf
+
+
+@bp.get("/")
+def landing():
+    return render_template("public/landing.html")
+
+
+@bp.route("/signup", methods=["GET", "POST"])
+def signup():
+    form = {}
+    if request.method == "POST":
+        form = request.form
+        name = form.get("name", "").strip()[:60]
+        email = form.get("email", "").strip().lower()[:120]
+        password = form.get("password", "")
+        phone = normalize_phone(form.get("phone"), "27")
+        errors = []
+        if not name:
+            errors.append("Enter your car wash name.")
+        if not EMAIL_RE.match(email):
+            errors.append("Enter a valid email.")
+        if len(password) < 8:
+            errors.append("Password needs at least 8 characters.")
+        if not phone_is_valid(phone):
+            errors.append("Enter your WhatsApp number so we can reach you.")
+        db = get_db()
+        if not errors and db.execute("SELECT 1 FROM tenants WHERE email = ?", (email,)).fetchone():
+            errors.append("This email already has an account. Log in instead.")
+        if not errors and not limiter.allow(f"signup:{client_ip()}", 5, 3600):
+            errors.append("Too many sign-ups from this network. Try again in an hour.")
+        if not errors:
+            with db:
+                tenant_id = seed.create_tenant(
+                    db, name=name, email=email, password_hash=generate_password_hash(password),
+                    phone=phone, city=form.get("city", "").strip()[:60],
+                    trial_days=current_app.config["TRIAL_DAYS"],
+                )
+            _start_session(tenant_id)
+            flash(f"Welcome! Your {current_app.config['TRIAL_DAYS']}-day free trial has started.")
+            return redirect(url_for("owner.board"))
+        for e in errors:
+            flash(e, "error")
+    return render_template("public/signup.html", form=form)
+
+
+@bp.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        if not limiter.allow(f"login:{client_ip()}", 10, 900):
+            flash("Too many attempts. Wait 15 minutes and try again.", "error")
+            return render_template("public/login.html", email=email), 429
+        tenant = get_db().execute(
+            "SELECT * FROM tenants WHERE email = ? AND is_demo = 0", (email,)
+        ).fetchone()
+        if tenant and check_password_hash(tenant["password_hash"] or "", request.form.get("password", "")):
+            if tenant["is_disabled"]:
+                flash("This account is paused. Please contact support.", "error")
+            else:
+                _start_session(tenant["id"])
+                target = request.args.get("next", "")
+                return redirect(target if target.startswith("/app") else url_for("owner.board"))
+        else:
+            flash("Wrong email or password.", "error")
+        return render_template("public/login.html", email=email)
+    return render_template("public/login.html", email="")
+
+
+@bp.post("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("public.landing"))
+
+
+@bp.post("/demo")
+def demo():
+    db = get_db()
+    current = session.get("tenant_id")
+    if current and db.execute("SELECT 1 FROM tenants WHERE id = ? AND is_demo = 1", (current,)).fetchone():
+        return redirect(url_for("owner.board"))
+    if not limiter.allow(f"demo:{client_ip()}", 10, 3600):
+        flash("Too many demos from this network. Try again later.", "error")
+        return redirect(url_for("public.landing"))
+    with db:
+        seed.cleanup_demos(db)
+        tenant_id = seed.create_demo(db)
+    _start_session(tenant_id)
+    return redirect(url_for("owner.board"))
+
+
+@bp.get("/privacy")
+def privacy():
+    return render_template("public/privacy.html")
+
+
+@bp.get("/robots.txt")
+def robots():
+    return Response("User-agent: *\nDisallow: /app\nDisallow: /admin\nDisallow: /demo\n", mimetype="text/plain")
+
+
+@bp.get("/healthz")
+def healthz():
+    get_db().execute("SELECT 1")
+    return "ok"

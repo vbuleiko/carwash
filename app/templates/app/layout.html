@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, flashes %}
+{% block title %}{% block page_title %}{% endblock %} · {{ g.tenant.name }}{% endblock %}
+{% block body_class %}app{% endblock %}
+{% block body_attrs %}data-demo="{{ 1 if g.tenant.is_demo else 0 }}"{% endblock %}
+{% block body %}
+{% if g.sub.demo %}
+<div class="banner banner-demo">
+  <span>Demo car wash — tap around, nothing is real.</span>
+  <a href="{{ url_for('public.signup') }}">Start free trial →</a>
+</div>
+{% elif not g.sub.active %}
+<div class="banner banner-error">
+  <span>Your {{ 'trial' if g.sub.plan == 'trial' else 'subscription' }} has ended. Your data is safe, but you can't add new cars.</span>
+  <a href="{{ url_for('owner.settings_account') }}">Continue →</a>
+</div>
+{% elif g.sub.days_left is not none and g.sub.days_left <= 5 %}
+<div class="banner banner-warn">
+  <span>{{ 'Trial' if g.sub.plan == 'trial' else 'Subscription' }} ends {{ 'today' if g.sub.days_left == 0 else 'in %d day%s' % (g.sub.days_left, '' if g.sub.days_left == 1 else 's') }}.</span>
+  <a href="{{ url_for('owner.settings_account') }}">Keep using it →</a>
+</div>
+{% endif %}
+
+<header class="topbar">
+  {% block top_left %}<a class="topbar-title" href="{{ url_for('owner.board') }}">{{ g.tenant.name }}</a>{% endblock %}
+  {% block top_right %}{% endblock %}
+</header>
+
+<main class="wrap">
+  {{ flashes() }}
+  {% block content %}{% endblock %}
+</main>
+
+<nav class="tabbar" aria-label="Main">
+  {% set ep = request.endpoint or '' %}
+  <a href="{{ url_for('owner.board') }}" class="{{ 'on' if ep in ('owner.board', 'owner.new_visit', 'owner.visit') }}">{{ icon('board') }}<span>Board</span></a>
+  <a href="{{ url_for('owner.cars') }}" class="{{ 'on' if ep in ('owner.cars', 'owner.car') }}">{{ icon('car') }}<span>Cars</span></a>
+  <a href="{{ url_for('owner.report') }}" class="{{ 'on' if ep == 'owner.report' }}">{{ icon('chart') }}<span>Reports</span></a>
+  <a href="{{ url_for('owner.settings') }}" class="{{ 'on' if ep.startswith('owner.settings') }}">{{ icon('gear') }}<span>Settings</span></a>
+</nav>
+
+{% if g.sub.demo %}
+<dialog id="preview-dialog" class="sheet">
+  <h3>WhatsApp message</h3>
+  <p class="muted small">In your real account this opens WhatsApp with the message ready — you just tap Send.</p>
+  <div class="bubble" id="preview-text"></div>
+  <div class="row">
+    <button type="button" class="btn" data-close>Close</button>
+    <button type="button" class="btn primary" id="preview-ok">Done</button>
+  </div>
+</dialog>
+{% endif %}
+{% endblock %}

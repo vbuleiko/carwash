@@ -1,0 +1,85 @@
+{% extends "app/layout.html" %}
+{% block page_title %}Reports{% endblock %}
+{% block content %}
+<nav class="segmented" aria-label="Period">
+  {% for key, label in periods %}
+  <a href="{{ url_for('owner.report', p=key) }}" class="{{ 'on' if r.key == key }}">{{ label }}</a>
+  {% endfor %}
+</nav>
+<p class="muted small center">
+  {% if r.start == r.end %}{{ r.start.strftime('%A, %d %B') }}{% else %}{{ r.start.strftime('%d %b') }} – {{ r.end.strftime('%d %b %Y') }}{% endif %}
+</p>
+
+<section class="stats">
+  <div class="stat"><b>{{ r.cars }}</b><span>cars</span></div>
+  <div class="stat"><b>{{ r.revenue|money }}</b><span>revenue</span></div>
+  <div class="stat"><b>{{ r.avg_ticket|money }}</b><span>avg ticket</span></div>
+  <div class="stat"><b>{{ r.avg_minutes|minutes }}</b><span>avg wash</span></div>
+</section>
+{% if r.free %}<p class="muted small center">Includes {{ r.free }} free loyalty wash{{ 'es' if r.free != 1 }}.</p>{% endif %}
+
+{% if r.days %}
+<section class="card">
+  <h2>By day</h2>
+  {% for d in r.days %}
+  <div class="bar-row">
+    <span class="bar-label">{{ d.date.strftime('%a %d') }}</span>
+    <span class="bar"><i style="width: {{ d.pct }}%"></i></span>
+    <span class="bar-value">{{ d.cars }} · {{ d.revenue|money }}</span>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Staff</h2>
+  {% if r.staff %}
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Washer</th><th>Cars</th><th>Avg</th><th>vs usual</th><th>Earned</th></tr></thead>
+    <tbody>
+    {% for s in r.staff %}
+      <tr>
+        <td>{{ s.name }}</td>
+        <td>{{ s.cars }}</td>
+        <td>{{ s.avg_minutes|minutes }}</td>
+        <td>{% if s.speed is none %}<span class="muted">—</span>{% elif s.speed <= -3 %}<span class="good">−{{ -s.speed }}%</span>{% elif s.speed >= 3 %}<span class="bad">+{{ s.speed }}%</span>{% else %}avg{% endif %}</td>
+        <td>{{ s.earned|money }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted small"><b>vs usual</b> compares each washer with the usual time for the same service and car type: <span class="good">−15%</span> means 15% faster. Pay for a car washed by two people is split between them.</p>
+  {% else %}
+  <p class="muted"><a href="{{ url_for('owner.settings_staff') }}">Add your washers</a> and pick them when a wash starts.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Services</h2>
+  {% if r.services %}
+  <table>
+    <thead><tr><th>Service</th><th>Cars</th><th>Revenue</th></tr></thead>
+    <tbody>
+    {% for s in r.services %}
+      <tr><td>{{ s.name }}</td><td>{{ s.count }}</td><td>{{ s.revenue|money }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">No cars in this period.</p>{% endif %}
+</section>
+
+{% if r.hours %}
+<section class="card">
+  <h2>Busiest hours</h2>
+  {% for h in r.hours %}
+  <div class="bar-row">
+    <span class="bar-label">{{ '%02d:00' % h.hour }}</span>
+    <span class="bar"><i style="width: {{ h.pct }}%"></i></span>
+    <span class="bar-value">{{ h.count }}</span>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

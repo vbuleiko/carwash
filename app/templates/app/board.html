@@ -1,0 +1,64 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import icon %}
+{% block page_title %}Board{% endblock %}
+{% block content %}
+<section class="today">
+  <div class="stat"><b>{{ cars }}</b><span>cars today</span></div>
+  <div class="stat"><b>{{ revenue|money }}</b><span>today</span></div>
+  <a class="btn primary big" href="{{ url_for('owner.new_visit') }}">{{ icon('plus') }} New car</a>
+</section>
+
+{% if first_run %}
+<section class="card onboarding">
+  <h2>Get set up in 2 minutes</h2>
+  <ol>
+    <li><a href="{{ url_for('owner.settings_prices') }}">Check your price list</a> — we filled in typical prices.</li>
+    <li><a href="{{ url_for('owner.settings_staff') }}">Add your washers</a> — to see who's fastest and what they earned.</li>
+    <li><a href="{{ url_for('owner.settings_business') }}">Add your Google review link</a> — to ask happy customers for reviews.</li>
+    <li><a href="{{ url_for('owner.new_visit') }}">Add your first car</a>.</li>
+  </ol>
+</section>
+{% endif %}
+
+{% for key, title in [('queued', 'Waiting'), ('washing', 'Washing'), ('ready', 'Ready for collection')] %}
+<section class="lane lane-{{ key }}">
+  <h2>{{ title }} <span class="count">{{ lanes[key]|length }}</span></h2>
+  {% for v in lanes[key] %}
+    {% include "app/_card.html" %}
+  {% else %}
+    <p class="empty">No cars</p>
+  {% endfor %}
+</section>
+{% endfor %}
+
+{% if lanes.collected %}
+<section class="lane lane-collected">
+  <details>
+    <summary><h2>Collected today <span class="count">{{ lanes.collected|length }}</span></h2></summary>
+    {% for v in lanes.collected %}
+      {% include "app/_card.html" %}
+    {% endfor %}
+  </details>
+</section>
+{% endif %}
+
+<dialog id="start-dialog" class="sheet">
+  <form method="post">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <h3>Who's washing <span class="dlg-plate"></span>?</h3>
+    {% if washers %}
+    <div class="chips">
+      {% for w in washers %}
+      <label class="chip"><input type="checkbox" name="washer_id" value="{{ w.id }}"><span>{{ w.name }}</span></label>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted small">Tip: <a href="{{ url_for('owner.settings_staff') }}">add your washers</a> to track speed and pay.</p>
+    {% endif %}
+    <div class="row">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button class="btn primary">{{ icon('play') }} Start washing</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}

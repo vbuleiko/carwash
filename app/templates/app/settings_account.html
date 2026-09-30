@@ -1,0 +1,39 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import icon %}
+{% block page_title %}Account{% endblock %}
+{% block top_left %}<a class="topbar-back" href="{{ url_for('owner.settings') }}">{{ icon('back') }} Account</a>{% endblock %}
+{% block content %}
+<section class="card stack">
+  <h2>Subscription</h2>
+  {% if g.sub.demo %}
+    <p>This is a demo car wash. <a href="{{ url_for('public.signup') }}">Start your own free trial</a> — {{ config.TRIAL_DAYS }} days, no card needed.</p>
+  {% else %}
+    <p>
+      {% if g.sub.active %}
+        {{ 'Free trial' if g.sub.plan == 'trial' else 'Active' }} until <b>{{ g.sub.until.strftime('%d %B %Y') }}</b>
+        ({{ g.sub.days_left }} day{{ '' if g.sub.days_left == 1 else 's' }} left).
+      {% else %}
+        Ended on <b>{{ g.sub.until.strftime('%d %B %Y') }}</b>. Your data is safe.
+      {% endif %}
+    </p>
+    <p class="muted">{{ config.PRICE_MONTHLY }} per month. Pay by EFT — we'll send you the details and extend your account as soon as it's paid.</p>
+    {% if config.SUPPORT_WHATSAPP %}
+    <a class="btn wa" target="_blank" rel="noopener"
+       href="{{ wa_link(config.SUPPORT_WHATSAPP, 'Hi! I would like to subscribe ' ~ g.tenant.name ~ ' (' ~ g.tenant.email ~ ') to ' ~ config.APP_NAME ~ '.') }}">{{ icon('chat') }} Subscribe on WhatsApp</a>
+    {% elif config.SUPPORT_EMAIL %}
+    <a class="btn" href="mailto:{{ config.SUPPORT_EMAIL }}?subject=Subscribe%20{{ g.tenant.name|urlencode }}">Email us to subscribe</a>
+    {% endif %}
+  {% endif %}
+</section>
+
+{% if not g.tenant.is_demo %}
+<form method="post" class="card stack">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <h2>Password</h2>
+  <p class="muted small">Logged in as {{ g.tenant.email }}</p>
+  <label class="field"><span>Current password</span><input type="password" name="current" autocomplete="current-password" required></label>
+  <label class="field"><span>New password</span><input type="password" name="new" autocomplete="new-password" minlength="8" required></label>
+  <button class="btn">Change password</button>
+</form>
+{% endif %}
+{% endblock %}

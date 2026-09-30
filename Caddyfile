@@ -1,0 +1,7 @@
+# DOMAIN comes from .env: "washbook.co.za" gets a free HTTPS certificate automatically.
+# For a quick test by IP address use DOMAIN=:80 (and COOKIE_SECURE=0).
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:8000
+	header Strict-Transport-Security "max-age=31536000"
+}

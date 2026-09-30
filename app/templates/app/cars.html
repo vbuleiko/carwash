@@ -1,0 +1,35 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import icon %}
+{% block page_title %}Cars{% endblock %}
+{% block content %}
+<form class="search" method="get">
+  {{ icon('search') }}
+  <input type="search" name="q" value="{{ q }}" placeholder="Plate, phone or make" autocapitalize="characters" autocomplete="off">
+</form>
+
+{% if q %}
+  {% for c in vehicles %}
+  <a class="card list-item" href="{{ url_for('owner.car', car_id=c.id) }}">
+    <div><span class="plate">{{ c.plate }}</span> <span class="muted">{{ [c.make, c.car_type]|select|join(' · ') }}</span></div>
+    <div class="muted small">{{ c.visits }} visit{{ '' if c.visits == 1 else 's' }}{% if c.last_visit %} · last {{ c.last_visit|local('%d %b') }}{% endif %}{% if c.phone %} · {{ c.phone|phone }}{% endif %}</div>
+  </a>
+  {% else %}
+  <p class="empty">Nothing found for “{{ q }}”.</p>
+  {% endfor %}
+{% else %}
+  {% set ns = namespace(day='') %}
+  {% for v in visits %}
+    {% set day = v.created_at|local('%A, %d %B') %}
+    {% if day != ns.day %}<h2 class="day">{{ day }}</h2>{% set ns.day = day %}{% endif %}
+    <a class="card list-item" href="{{ url_for('owner.visit', vid=v.id) }}">
+      <div class="list-row">
+        <span><span class="plate">{{ v.plate }}</span> <span class="muted">{{ v.make }}</span></span>
+        <span>{% if v.status == 'cancelled' %}<s class="muted">{{ v.price_cents|money }}</s>{% elif v.is_free %}<b class="free">FREE</b>{% else %}<b>{{ v.price_cents|money }}</b>{% endif %}</span>
+      </div>
+      <div class="muted small">{{ v.created_at|local }} · {{ v.services|join(', ') }}{% if v.washers %} · {{ v.washers|join(' & ') }}{% endif %}{% if v.status in ('queued', 'washing', 'ready', 'cancelled') %} · <span class="pill pill-{{ v.status }}">{{ v.status|capitalize }}</span>{% endif %}</div>
+    </a>
+  {% else %}
+    <p class="empty">No cars yet. <a href="{{ url_for('owner.new_visit') }}">Add your first car</a>.</p>
+  {% endfor %}
+{% endif %}
+{% endblock %}

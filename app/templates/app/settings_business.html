@@ -1,0 +1,48 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import icon %}
+{% block page_title %}Business &amp; messages{% endblock %}
+{% block top_left %}<a class="topbar-back" href="{{ url_for('owner.settings') }}">{{ icon('back') }} Business &amp; messages</a>{% endblock %}
+{% block content %}
+{% set t = g.tenant %}
+<form method="post" class="stack">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <section class="card stack">
+    <label class="field"><span>Car wash name</span><input name="name" value="{{ request.form.name or t.name }}" required maxlength="60"></label>
+    <label class="field">
+      <span>Google review link <em>optional</em></span>
+      <input name="review_url" value="{{ request.form.review_url or t.review_url }}" type="url" placeholder="https://g.page/r/.../review">
+      <small class="muted">Google Business Profile → <b>Ask for reviews</b> → copy the link.</small>
+    </label>
+    <label class="field">
+      <span>Loyalty: every Nth wash is free</span>
+      <input name="loyalty_every" value="{{ request.form.loyalty_every or t.loyalty_every }}" inputmode="numeric" pattern="[0-9]*">
+      <small class="muted">6 = five paid washes, the sixth is free. 0 = off. Counted per number plate.</small>
+    </label>
+  </section>
+
+  <section class="card stack">
+    <h2>WhatsApp messages</h2>
+    <p class="muted small">You can use: <code>{business}</code> <code>{plate}</code> <code>{car}</code> <code>{price}</code> <code>{review_link}</code></p>
+    <label class="field"><span>Car is ready</span><textarea name="msg_ready" rows="4" maxlength="600">{{ request.form.msg_ready or t.msg_ready }}</textarea></label>
+    <label class="field"><span>Ask for a review</span><textarea name="msg_review" rows="4" maxlength="600">{{ request.form.msg_review or t.msg_review }}</textarea></label>
+  </section>
+
+  <section class="card stack">
+    <h2>Region</h2>
+    <div class="grid2">
+      <label class="field">
+        <span>Country code for phones</span>
+        <input name="country_code" value="{{ request.form.country_code or t.country_code }}" inputmode="numeric" maxlength="4">
+      </label>
+      <label class="field">
+        <span>Time zone</span>
+        <select name="timezone">
+          {% for tz in timezones %}<option {{ 'selected' if (request.form.timezone or t.timezone) == tz }}>{{ tz }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+  </section>
+
+  <button class="btn primary big wide">Save</button>
+</form>
+{% endblock %}

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="csrf" content="{{ csrf_token() }}">
+  <title>{% block title %}{{ config.APP_NAME }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}Log every car, send a WhatsApp when it's ready, and see what your car wash really makes. Built for South African car washes.{% endblock %}">
+  <meta name="theme-color" content="#0f766e">
+  <link rel="icon" href="{{ url_for('static', filename='icon.svg') }}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-180.png') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ config.ASSET_VERSION }}">
+  <script src="{{ url_for('static', filename='app.js') }}?v={{ config.ASSET_VERSION }}" defer></script>
+</head>
+<body class="{% block body_class %}{% endblock %}" {% block body_attrs %}{% endblock %}>
+{% block body %}{% endblock %}
+</body>
+</html>

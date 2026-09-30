@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, flashes %}
+{% block title %}{{ config.APP_NAME }} — the car wash notebook that texts your customers{% endblock %}
+{% block body_class %}site{% endblock %}
+{% block body %}
+{% include "public/_nav.html" %}
+
+<main>
+  <section class="hero">
+    <div class="hero-text">
+      {{ flashes() }}
+      <p class="eyebrow">For South African car washes</p>
+      <h1>Stop writing plates on paper. Start texting “your car is ready”.</h1>
+      <p class="lead">Log every car in seconds, send a WhatsApp when it's done, and finally see how many cars you washed, what you made and who on your team is fastest.</p>
+      <div class="cta">
+        <form method="post" action="{{ url_for('public.demo') }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button class="btn primary big">Try the live demo</button>
+        </form>
+        <a class="btn big" href="{{ url_for('public.signup') }}">Start {{ config.TRIAL_DAYS }}-day free trial</a>
+      </div>
+      <p class="muted small">No card needed · Works on any phone · No app to install</p>
+    </div>
+
+    <div class="phone" aria-hidden="true">
+      <div class="phone-screen">
+        <div class="mini-today"><span><b>23</b> cars</span><span><b>R2,480</b> today</span></div>
+        <div class="mini-lane">Washing</div>
+        <div class="mini-card">
+          <div><b class="plate">CA 482-117</b><small>Toyota Corolla · Wash &amp; Vac · R100</small><small>Sipho</small></div>
+          <span class="mini-btn wa">Ready</span>
+        </div>
+        <div class="mini-card">
+          <div><b class="plate">JH 45 LK GP</b><small>Ford Ranger · Full Valet · R320</small><small>Thabo &amp; Lerato</small></div>
+          <span class="mini-btn wa">Ready</span>
+        </div>
+        <div class="mini-lane">Waiting</div>
+        <div class="mini-card">
+          <div><b class="plate">ND 301-554</b><small>VW Polo · Wash &amp; Go · R70</small></div>
+          <span class="mini-btn">Start</span>
+        </div>
+        <div class="bubble mini-bubble">Hi! Your Toyota Corolla (CA 482-117) is ready for collection at Sunshine Car Wash. Total: R100. Thank you!<span class="tick">✓✓</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="how">
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li><b>Car arrives.</b> Type the plate and the customer's number. Regulars fill in by themselves.</li>
+      <li><b>Wash starts.</b> Tap who's washing. The clock starts.</li>
+      <li><b>Tap “Ready”.</b> WhatsApp opens with the message written for you — just press send.</li>
+    </ol>
+  </section>
+
+  <section class="features">
+    <div class="feature">
+      <h3>Every rand accounted for</h3>
+      <p>Cars and takings per day, average ticket and busiest hours. If a car was washed, it's in the book.</p>
+    </div>
+    <div class="feature">
+      <h3>Know who's fastest</h3>
+      <p>Wash time per washer, compared on the same service and car type — plus their earnings, worked out automatically.</p>
+    </div>
+    <div class="feature">
+      <h3>Loyalty without cards</h3>
+      <p>“Every 6th wash free”, tracked by number plate. No stamps to lose, no cards to print.</p>
+    </div>
+    <div class="feature">
+      <h3>More 5-star reviews</h3>
+      <p>One tap asks a happy customer for a Google review on WhatsApp, right after they collect.</p>
+    </div>
+    <div class="feature">
+      <h3>Your price list</h3>
+      <p>Prices per car type — hatch, SUV, bakkie, minibus. Add your own services in a minute.</p>
+    </div>
+    <div class="feature">
+      <h3>Customers stop waiting around</h3>
+      <p>They can leave and come back when the message arrives. Your yard stays clear.</p>
+    </div>
+  </section>
+
+  <section class="pricing" id="pricing">
+    <h2>Simple pricing</h2>
+    <div class="price-card">
+      <p class="price"><b>{{ config.PRICE_MONTHLY }}</b> / month</p>
+      <p class="muted">per car wash · cancel any time</p>
+      <ul>
+        <li>{{ icon('check') }} Unlimited cars and customers</li>
+        <li>{{ icon('check') }} WhatsApp messages from your own number — no per-message fees</li>
+        <li>{{ icon('check') }} Staff speed and pay, reports, loyalty</li>
+        <li>{{ icon('check') }} Help on WhatsApp when you need it</li>
+      </ul>
+      <a class="btn primary big wide" href="{{ url_for('public.signup') }}">Start {{ config.TRIAL_DAYS }} days free</a>
+    </div>
+  </section>
+
+  <section class="faq">
+    <h2>Questions</h2>
+    <details><summary>Do I need WhatsApp Business?</summary><p>No. It works with the normal WhatsApp or WhatsApp Business already on your phone. Messages go out from your number, so customers can reply to you directly.</p></details>
+    <details><summary>My washers don't have smartphones.</summary><p>They don't need one. One phone at the wash is enough — you pick who's washing from a list.</p></details>
+    <details><summary>What about load shedding?</summary><p>{{ config.APP_NAME }} runs in the cloud, so your records are safe even when the power goes. All you need is a charged phone with data.</p></details>
+    <details><summary>Is my customers' data safe?</summary><p>Your data is only visible to you. We never sell it or message your customers ourselves. See our <a href="{{ url_for('public.privacy') }}">privacy policy</a>.</p></details>
+    <details><summary>How do I pay?</summary><p>Monthly by EFT after your free trial. We'll remind you a few days before the trial ends.</p></details>
+  </section>
+
+  <section class="final-cta">
+    <h2>See it with your own eyes</h2>
+    <p class="muted">The demo is a pretend car wash with two weeks of history. Tap around — you can't break anything.</p>
+    <form method="post" action="{{ url_for('public.demo') }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="btn primary big">Open the demo</button>
+    </form>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <span>© {{ config.APP_NAME }}</span>
+  <a href="{{ url_for('public.privacy') }}">Privacy</a>
+  {% if support_wa %}<a href="{{ support_wa }}" target="_blank" rel="noopener">WhatsApp us</a>{% endif %}
+  {% if config.SUPPORT_EMAIL %}<a href="mailto:{{ config.SUPPORT_EMAIL }}">{{ config.SUPPORT_EMAIL }}</a>{% endif %}
+</footer>
+{% endblock %}

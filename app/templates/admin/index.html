@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_macros.html" import flashes %}
+{% block title %}Admin · {{ config.APP_NAME }}{% endblock %}
+{% block body_class %}site admin{% endblock %}
+{% block body %}
+<header class="site-nav">
+  <span class="logo">{{ config.APP_NAME }} admin</span>
+  <form method="post" action="{{ url_for('admin.logout') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button class="btn ghost">Log out</button>
+  </form>
+</header>
+<main class="admin-wrap">
+  {{ flashes() }}
+  <section class="stats">
+    <div class="stat"><b>{{ stats.total }}</b><span>car washes</span></div>
+    <div class="stat"><b>{{ stats.paid }}</b><span>paying</span></div>
+    <div class="stat"><b>{{ stats.trial }}</b><span>on trial</span></div>
+    <div class="stat"><b>{{ stats.expired }}</b><span>expired</span></div>
+    <div class="stat"><b>{{ stats.cars_30d }}</b><span>cars, 30 days</span></div>
+    <div class="stat"><b>{{ stats.demos_24h }}</b><span>demos, 24 h</span></div>
+  </section>
+
+  {% for t in tenants %}
+  <article class="card tenant {{ 'inactive' if t.is_disabled }}">
+    <div class="tenant-head">
+      <div>
+        <b>{{ t.name }}</b>{% if t.city %} <span class="muted">· {{ t.city }}</span>{% endif %}
+        <div class="muted small">{{ t.email }} · <a href="{{ wa_link(t.phone) }}" target="_blank" rel="noopener">{{ t.phone|phone }}</a> · joined {{ t.created_at[:10] }}</div>
+      </div>
+      <span class="pill {{ 'pill-ready' if t.days_left >= 0 else 'pill-cancelled' }}">
+        {% if t.is_disabled %}paused{% elif t.days_left < 0 %}expired {{ -t.days_left }}d ago{% else %}{{ t.plan }} · {{ t.days_left }}d left{% endif %}
+      </span>
+    </div>
+    <div class="muted small">
+      {{ t.cars_30d }} car{{ '' if t.cars_30d == 1 else 's' }} in 30 days (~{{ (t.cars_30d / 30)|round(1) }}/day)
+      · last car {{ t.last_car[:10] if t.last_car else 'never' }}
+      · last seen {{ t.last_seen_at[:16] if t.last_seen_at else 'never' }} UTC
+      · until {{ t.paid_until }}
+    </div>
+    <div class="row wrap-row">
+      <form method="post" action="{{ url_for('admin.extend', tid=t.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="months" value="1"><button class="btn">+1 month</button></form>
+      <form method="post" action="{{ url_for('admin.extend', tid=t.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="months" value="12"><button class="btn">+12 months</button></form>
+      <form method="post" action="{{ url_for('admin.set_date', tid=t.id) }}" class="row">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="date" name="paid_until" value="{{ t.paid_until }}" aria-label="Active until">
+        <button class="btn">Set</button>
+      </form>
+      <form method="post" action="{{ url_for('admin.open_as', tid=t.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn">Open app</button></form>
+      <form method="post" action="{{ url_for('admin.reset_password', tid=t.id) }}" data-confirm="Reset password for {{ t.email }}?"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn ghost">Reset password</button></form>
+      <form method="post" action="{{ url_for('admin.toggle', tid=t.id) }}" data-confirm="{{ 'Enable' if t.is_disabled else 'Pause' }} {{ t.name }}?"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn ghost {{ '' if t.is_disabled else 'danger' }}">{{ 'Enable' if t.is_disabled else 'Pause' }}</button></form>
+    </div>
+  </article>
+  {% else %}
+  <p class="empty">No car washes yet. Share the landing page!</p>
+  {% endfor %}
+</main>
+{% endblock %}

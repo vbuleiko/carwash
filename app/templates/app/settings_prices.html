@@ -1,0 +1,44 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import icon %}
+{% block page_title %}Price list{% endblock %}
+{% block top_left %}<a class="topbar-back" href="{{ url_for('owner.settings') }}">{{ icon('back') }} Price list</a>{% endblock %}
+{% block content %}
+<form method="post" class="stack">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+
+  <section class="card stack">
+    <h2>Car types</h2>
+    {% for t in car_types %}
+    <div class="inline-edit {{ 'inactive' if not t.active }}">
+      <input name="type_name_{{ t.id }}" value="{{ t.name }}" maxlength="30" aria-label="Car type name">
+      <label class="toggle small"><input type="checkbox" name="type_active_{{ t.id }}" value="1" {{ 'checked' if t.active }}><span>In use</span></label>
+    </div>
+    {% endfor %}
+    <input name="new_type" placeholder="+ Add car type (e.g. Truck)" maxlength="30">
+  </section>
+
+  {% for s in services %}
+  <section class="card stack {{ 'inactive' if not s.active }}">
+    <div class="inline-edit">
+      <input name="service_name_{{ s.id }}" value="{{ s.name }}" maxlength="40" class="strong" aria-label="Service name">
+      <label class="toggle small"><input type="checkbox" name="service_active_{{ s.id }}" value="1" {{ 'checked' if s.active }}><span>In use</span></label>
+    </div>
+    <div class="price-grid">
+      {% for t in car_types if t.active %}
+      <label class="field">
+        <span>{{ t.name }}</span>
+        {% set p = matrix.get(s.id, {}).get(t.id) %}
+        <input name="price_{{ s.id }}_{{ t.id }}" value="{{ '' if p is none else p|amount }}" inputmode="decimal" placeholder="R">
+      </label>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+
+  <section class="card">
+    <input name="new_service" placeholder="+ Add service (e.g. Leather treatment)" maxlength="40">
+  </section>
+
+  <button class="btn primary big wide">Save price list</button>
+</form>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import icon %}
+{% block page_title %}New car{% endblock %}
+{% block top_left %}<a class="topbar-back" href="{{ url_for('owner.board') }}">{{ icon('back') }} New car</a>{% endblock %}
+{% block content %}
+<form method="post" id="visit-form" class="stack card" data-mode="new" data-lookup="{{ url_for('owner.lookup') }}">
+  {% with autofocus=True %}{% include "app/_visit_fields.html" %}{% endwith %}
+  <button class="btn primary big wide">Add car</button>
+</form>
+{% endblock %}

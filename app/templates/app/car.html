@@ -1,0 +1,41 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import icon %}
+{% block page_title %}{{ car.plate }}{% endblock %}
+{% block top_left %}<a class="topbar-back" href="{{ url_for('owner.cars') }}">{{ icon('back') }} {{ car.plate }}</a>{% endblock %}
+{% block content %}
+<section class="stats">
+  <div class="stat"><b>{{ count }}</b><span>visits</span></div>
+  <div class="stat"><b>{{ total|money }}</b><span>spent</span></div>
+  {% if loyalty.every %}
+  <div class="stat"><b>{{ loyalty.count }}/{{ loyalty.needed }}</b><span>{{ 'next wash FREE' if loyalty.next_free else 'to a free wash' }}</span></div>
+  {% endif %}
+</section>
+
+<section class="row wrap-row">
+  <a class="btn primary" href="{{ url_for('owner.new_visit', plate=car.plate) }}">{{ icon('plus') }} New visit</a>
+  {% if chat_link %}<a class="btn wa" href="{{ chat_link }}" target="_blank" rel="noopener" {% if g.sub.demo %}data-preview data-msg="(opens a WhatsApp chat with {{ car.phone|phone }})"{% endif %}>{{ icon('chat') }} Chat</a>{% endif %}
+</section>
+
+<form method="post" class="stack card">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <div class="grid2">
+    <label class="field"><span>Number plate</span><input name="plate" value="{{ car.plate }}" required autocapitalize="characters" class="input-plate"></label>
+    <label class="field"><span>Make / model</span><input name="make" value="{{ car.make }}"></label>
+  </div>
+  <label class="field"><span>Customer WhatsApp</span><input name="phone" type="tel" value="{{ car.phone|phone }}" placeholder="082 123 4567"></label>
+  <button class="btn">Save</button>
+</form>
+
+<h2 class="day">History</h2>
+{% for v in visits %}
+<a class="card list-item" href="{{ url_for('owner.visit', vid=v.id) }}">
+  <div class="list-row">
+    <span>{{ v.created_at|local('%d %b %Y, %H:%M') }}</span>
+    <span>{% if v.status == 'cancelled' %}<s class="muted">{{ v.price_cents|money }}</s>{% elif v.is_free %}<b class="free">FREE</b>{% else %}<b>{{ v.price_cents|money }}</b>{% endif %}</span>
+  </div>
+  <div class="muted small">{{ v.services|join(', ') }}{% if v.washers %} · {{ v.washers|join(' & ') }}{% endif %}</div>
+</a>
+{% else %}
+<p class="empty">No visits yet.</p>
+{% endfor %}
+{% endblock %}

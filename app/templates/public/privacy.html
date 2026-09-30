@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Privacy · {{ config.APP_NAME }}{% endblock %}
+{% block body_class %}site{% endblock %}
+{% block body %}
+{% include "public/_nav.html" %}
+<main class="narrow prose">
+  <h1>Privacy policy</h1>
+  <p class="muted">In line with the Protection of Personal Information Act (POPIA).</p>
+
+  <h2>Who is who</h2>
+  <p>Each car wash that uses {{ config.APP_NAME }} is the <b>responsible party</b> for the information it records about its customers. {{ config.APP_NAME }} is the <b>operator</b>: we store and process that information only to provide the service to the car wash.</p>
+
+  <h2>What we store</h2>
+  <ul>
+    <li>About car wash owners: business name, email, WhatsApp number, city, password (encrypted).</li>
+    <li>About their customers: number plate, car make, phone number, services, prices and visit times.</li>
+  </ul>
+
+  <h2>What we use it for</h2>
+  <p>To run the app: show the board, prepare WhatsApp messages, build reports. We do not sell data, show ads, or message a car wash's customers ourselves. WhatsApp messages are sent by the car wash from its own phone.</p>
+
+  <h2>Customers of a car wash</h2>
+  <p>Your number is used to tell you when your car is ready and, sometimes, to ask for a review. To see, correct or delete your information, ask the car wash — or contact us and we'll pass it on.</p>
+
+  <h2>Security and retention</h2>
+  <p>Data is stored on secured servers and is only visible to the car wash it belongs to. When a car wash closes its account, its data is deleted within 30 days. Demo data is deleted within 24 hours.</p>
+
+  <h2>Contact</h2>
+  <p>{% if config.SUPPORT_EMAIL %}<a href="mailto:{{ config.SUPPORT_EMAIL }}">{{ config.SUPPORT_EMAIL }}</a>{% endif %}{% if support_wa %}{% if config.SUPPORT_EMAIL %} · {% endif %}<a href="{{ support_wa }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}{% if not config.SUPPORT_EMAIL and not support_wa %}Contact us through the car wash you visited.{% endif %}</p>
+</main>
+{% endblock %}

@@ -1,0 +1,63 @@
+{# shared by "New car" and the visit page; needs: form, car_types, services, price_data #}
+<input type="hidden" name="csrf" value="{{ csrf_token() }}">
+
+<label class="field">
+  <span>Number plate</span>
+  <input id="plate" name="plate" value="{{ form.plate or '' }}" required autocomplete="off"
+         autocapitalize="characters" spellcheck="false" placeholder="CA 123-456" class="input-plate"
+         {% if autofocus %}autofocus{% endif %}>
+</label>
+<div id="lookup-info" class="lookup" hidden></div>
+
+<div class="grid2">
+  <label class="field">
+    <span>Make / model <em>optional</em></span>
+    <input id="make" name="make" value="{{ form.make or '' }}" list="makes" autocomplete="off" placeholder="Toyota Corolla">
+  </label>
+  <label class="field">
+    <span>Customer WhatsApp</span>
+    <input id="phone" name="phone" value="{{ form.phone or '' }}" type="tel" inputmode="tel" autocomplete="off" placeholder="082 123 4567">
+  </label>
+</div>
+<datalist id="makes">
+  {% for m in ['Toyota', 'Volkswagen', 'Ford', 'Hyundai', 'Nissan', 'Suzuki', 'Kia', 'Renault', 'Isuzu', 'Mahindra', 'Haval', 'Chery', 'BMW', 'Mercedes-Benz', 'Audi', 'Mazda', 'Honda', 'Opel', 'Datsun', 'Jeep', 'Land Rover', 'Mitsubishi', 'Peugeot', 'GWM', 'Omoda', 'BAIC', 'Proton'] %}
+  <option value="{{ m }}">
+  {% endfor %}
+</datalist>
+
+<fieldset class="field">
+  <legend>Car type</legend>
+  <div class="chips">
+    {% for t in car_types %}
+    <label class="chip"><input type="radio" name="car_type_id" value="{{ t.id }}" {{ 'checked' if form.car_type_id|string == t.id|string }} required><span>{{ t.name }}</span></label>
+    {% endfor %}
+  </div>
+</fieldset>
+
+<fieldset class="field">
+  <legend>Services</legend>
+  <div class="chips">
+    {% set chosen = form.service_ids|map('string')|list %}
+    {% for s in services %}
+    <label class="chip"><input type="checkbox" name="service_id" value="{{ s.id }}" {{ 'checked' if s.id|string in chosen }}><span>{{ s.name }} <small class="chip-price"></small></span></label>
+    {% endfor %}
+  </div>
+</fieldset>
+
+<div class="grid2 price-row">
+  <label class="field">
+    <span>Price (R)</span>
+    <input id="price" name="price" value="{{ form.price or '' }}" inputmode="decimal" autocomplete="off" placeholder="0">
+  </label>
+  <label class="toggle">
+    <input type="checkbox" id="is_free" name="is_free" value="1" {{ 'checked' if form.is_free and form.is_free not in ('0', 0, False) }}>
+    <span>Free wash <em>(loyalty)</em></span>
+  </label>
+</div>
+
+<label class="field">
+  <span>Note <em>optional</em></span>
+  <input name="note" value="{{ form.note or '' }}" maxlength="200" placeholder="e.g. scratch on rear door, keys in office">
+</label>
+
+<script type="application/json" id="price-data">{{ price_data|tojson }}</script>

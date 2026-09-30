@@ -1,0 +1,66 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import icon %}
+{% block page_title %}{{ v.plate }}{% endblock %}
+{% block top_left %}<a class="topbar-back" href="{{ url_for('owner.board') }}">{{ icon('back') }} {{ v.plate }}</a>{% endblock %}
+{% block top_right %}<span class="pill pill-{{ v.status }}">{{ statuses[v.status] }}</span>{% endblock %}
+{% block content %}
+<p class="muted small">{{ v.created_at|local('%A, %d %B %Y') }}</p>
+<section class="card timeline">
+  <div><span>Arrived</span><b>{{ v.created_at|local }}</b></div>
+  <div><span>Started</span><b>{{ v.started_at|local or '—' }}</b></div>
+  <div><span>Ready</span><b>{{ v.ready_at|local or '—' }}</b></div>
+  <div><span>Collected</span><b>{{ v.collected_at|local or '—' }}</b></div>
+</section>
+
+{% if v.phone %}
+<section class="row wrap-row">
+  <a class="btn wa" href="{{ v.wa_ready }}" target="_blank" rel="noopener" data-msg="{{ v.msg_ready }}" data-preview>{{ icon('chat') }} Send "ready" message</a>
+  {% if v.wa_review %}<a class="btn" href="{{ v.wa_review }}" target="_blank" rel="noopener" data-mark="{{ url_for('owner.review', vid=v.id) }}" data-msg="{{ v.msg_review }}">{{ icon('star') }} Ask review</a>{% endif %}
+  <a class="link" href="{{ url_for('owner.car', car_id=v.vehicle_id) }}">Car history →</a>
+</section>
+{% else %}
+<p><a class="link" href="{{ url_for('owner.car', car_id=v.vehicle_id) }}">Car history →</a></p>
+{% endif %}
+
+<form method="post" id="visit-form" class="stack card" data-mode="edit">
+  {% include "app/_visit_fields.html" %}
+
+  <fieldset class="field">
+    <legend>Washed by</legend>
+    {% if washers %}
+    <div class="chips">
+      {% set team = form.washer_ids|map('string')|list %}
+      {% for w in washers %}
+      <label class="chip"><input type="checkbox" name="washer_id" value="{{ w.id }}" {{ 'checked' if w.id|string in team }}><span>{{ w.name }}</span></label>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted small"><a href="{{ url_for('owner.settings_staff') }}">Add your washers</a> first.</p>
+    {% endif %}
+  </fieldset>
+
+  <label class="field">
+    <span>Status</span>
+    <select name="status">
+      {% for key, label in statuses.items() %}
+      <option value="{{ key }}" {{ 'selected' if form.status == key }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <button class="btn primary big wide">Save</button>
+</form>
+
+<section class="row danger-zone">
+  {% if v.status != 'cancelled' %}
+  <form method="post" action="{{ url_for('owner.cancel', vid=v.id) }}" data-confirm="Cancel this visit? It won't count in reports.">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button class="btn ghost">Cancel visit</button>
+  </form>
+  {% endif %}
+  <form method="post" action="{{ url_for('owner.delete', vid=v.id) }}" data-confirm="Delete this visit for good?">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button class="btn ghost danger">Delete</button>
+  </form>
+</section>
+{% endblock %}
