@@ -25,16 +25,17 @@ MSG_REVIEW = (
 
 
 def create_tenant(db, *, name, email=None, password_hash=None, phone="", city="",
-                  trial_days=30, is_demo=False) -> int:
+                  trial_days=30, is_demo=False, theme="") -> int:
     today = local_today(zone(DEFAULT_TZ))
     cur = db.execute(
         "INSERT INTO tenants (name, email, password_hash, phone, city, msg_ready, msg_review, "
-        "loyalty_every, paid_until, is_demo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "loyalty_every, paid_until, is_demo, theme, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             name, email, password_hash, phone, city, MSG_READY, MSG_REVIEW,
             6 if is_demo else 0,
             (today + timedelta(days=trial_days)).isoformat(),
             1 if is_demo else 0,
+            theme,
             ts(),
         ),
     )
@@ -86,9 +87,9 @@ def _plate(rng: random.Random) -> str:
     return f"{prefix} {rng.randint(100, 999)}-{rng.randint(100, 999)}"
 
 
-def create_demo(db, now=None) -> int:
+def create_demo(db, now=None, theme="") -> int:
     """A sandbox car wash with two weeks of history and a few cars on the board."""
-    tenant_id = create_tenant(db, name="Sunshine Car Wash (demo)", is_demo=True)
+    tenant_id = create_tenant(db, name="Sunshine Car Wash (demo)", is_demo=True, theme=theme)
     db.execute(
         "UPDATE tenants SET review_url = ?, city = ? WHERE id = ?",
         ("https://g.page/r/your-car-wash/review", "Johannesburg", tenant_id),

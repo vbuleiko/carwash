@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{ error.code }} · {{ config.APP_NAME }}{% endblock %}
-{% block body_class %}plain{% endblock %}
+{% block body_class %}site{% endblock %}
 {% block body %}
+{% include "public/_nav.html" %}
 <main class="narrow center">
   <h1>{{ 'Page not found' if error.code == 404 else 'Something went wrong' }}</h1>
   <p class="muted">{{ error.description if error.code != 404 else "This page doesn't exist." }}</p>
-  <p><a class="btn" href="/">Home</a> <a class="btn primary" href="/app">Open the app</a></p>
+  <p class="cta cta-center"><a class="btn" href="/">Home</a> <a class="btn primary" href="/app">Open the app</a></p>
 </main>
 {% endblock %}

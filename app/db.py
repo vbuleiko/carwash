@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     msg_ready     TEXT NOT NULL DEFAULT '',
     msg_review    TEXT NOT NULL DEFAULT '',
     loyalty_every INTEGER NOT NULL DEFAULT 0,      -- 0 = off, 6 = every 6th wash free
+    theme         TEXT NOT NULL DEFAULT '',        -- '' = the site default
     plan          TEXT NOT NULL DEFAULT 'trial',   -- trial | paid
     paid_until    TEXT NOT NULL,                   -- YYYY-MM-DD, inclusive
     is_demo       INTEGER NOT NULL DEFAULT 0,
@@ -109,6 +110,9 @@ CREATE TABLE IF NOT EXISTS visit_washers (
 );
 """
 
+# columns added after the first release: CREATE TABLE has them, older databases get an ALTER
+ADDED_COLUMNS = [("tenants", "theme", "TEXT NOT NULL DEFAULT ''")]
+
 
 def connect(path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(path, timeout=10)
@@ -134,6 +138,9 @@ def init_db(path: str):
     conn = connect(path)
     conn.execute("PRAGMA journal_mode = WAL")
     conn.executescript(SCHEMA)
+    for table, column, decl in ADDED_COLUMNS:
+        if column not in {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
     conn.commit()
     conn.close()
 

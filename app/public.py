@@ -14,7 +14,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import seed
+from . import seed, themes
 from .db import get_db
 from .security import client_ip, limiter
 from .utils import normalize_phone, phone_is_valid
@@ -66,7 +66,7 @@ def signup():
                 tenant_id = seed.create_tenant(
                     db, name=name, email=email, password_hash=generate_password_hash(password),
                     phone=phone, city=form.get("city", "").strip()[:60],
-                    trial_days=current_app.config["TRIAL_DAYS"],
+                    trial_days=current_app.config["TRIAL_DAYS"], theme=themes.picked(),
                 )
             _start_session(tenant_id)
             flash(f"Welcome! Your {current_app.config['TRIAL_DAYS']}-day free trial has started.")
@@ -116,9 +116,16 @@ def demo():
         return redirect(url_for("public.landing"))
     with db:
         seed.cleanup_demos(db)
-        tenant_id = seed.create_demo(db)
+        tenant_id = seed.create_demo(db, theme=themes.picked())
     _start_session(tenant_id)
     return redirect(url_for("owner.board"))
+
+
+@bp.post("/theme")
+def theme():
+    name = request.form.get("theme", "")
+    resp = redirect(url_for("public.landing", _anchor="look"))
+    return themes.remember(resp, name) if name in themes.THEMES else resp
 
 
 @bp.get("/privacy")

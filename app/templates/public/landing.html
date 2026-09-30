@@ -22,25 +22,36 @@
       <p class="muted small">No card needed · Works on any phone · No app to install</p>
     </div>
 
-    <div class="phone" aria-hidden="true">
-      <div class="phone-screen">
-        <div class="mini-today"><span><b>23</b> cars</span><span><b>R2,480</b> today</span></div>
-        <div class="mini-lane">Washing</div>
-        <div class="mini-card">
-          <div><b class="plate">CA 482-117</b><small>Toyota Corolla · Wash &amp; Vac · R100</small><small>Sipho</small></div>
-          <span class="mini-btn wa">Ready</span>
+    <div class="hero-visual">
+      <div class="phone" aria-hidden="true">
+        <div class="phone-screen">
+          <div class="mini-today"><span><b>23</b> cars</span><span><b>R2,480</b> today</span></div>
+          <div class="mini-lane">Washing</div>
+          <div class="mini-card">
+            <div><b class="plate">CA 482-117</b><small>Toyota Corolla · Wash &amp; Vac · R100</small><small>Sipho</small></div>
+            <span class="mini-btn wa">Ready</span>
+          </div>
+          <div class="mini-card">
+            <div><b class="plate">JH 45 LK GP</b><small>Ford Ranger · Full Valet · R320</small><small>Thabo &amp; Lerato</small></div>
+            <span class="mini-btn wa">Ready</span>
+          </div>
+          <div class="mini-lane">Waiting</div>
+          <div class="mini-card">
+            <div><b class="plate">ND 301-554</b><small>VW Polo · Wash &amp; Go · R70</small></div>
+            <span class="mini-btn">Start</span>
+          </div>
+          <div class="bubble mini-bubble">Hi! Your Toyota Corolla (CA 482-117) is ready for collection at Sunshine Car Wash. Total: R100. Thank you!<span class="tick">✓✓</span></div>
         </div>
-        <div class="mini-card">
-          <div><b class="plate">JH 45 LK GP</b><small>Ford Ranger · Full Valet · R320</small><small>Thabo &amp; Lerato</small></div>
-          <span class="mini-btn wa">Ready</span>
-        </div>
-        <div class="mini-lane">Waiting</div>
-        <div class="mini-card">
-          <div><b class="plate">ND 301-554</b><small>VW Polo · Wash &amp; Go · R70</small></div>
-          <span class="mini-btn">Start</span>
-        </div>
-        <div class="bubble mini-bubble">Hi! Your Toyota Corolla (CA 482-117) is ready for collection at Sunshine Car Wash. Total: R100. Thank you!<span class="tick">✓✓</span></div>
       </div>
+      <form method="post" action="{{ url_for('public.theme') }}" class="look" id="look">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <span class="look-label">Look <b>{{ themes[theme].name }}</b></span>
+        <span class="look-dots">
+          {% for key, t in themes.items() %}
+          <button name="theme" value="{{ key }}" class="look-dot" style="--dot-bg: {{ t.bg }}; --dot: {{ t.accent }}" title="{{ t.name }}" aria-label="{{ t.name }} look" aria-pressed="{{ 'true' if key == theme else 'false' }}"></button>
+          {% endfor %}
+        </span>
+      </form>
     </div>
   </section>
 

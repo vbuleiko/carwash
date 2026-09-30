@@ -23,6 +23,7 @@ Washbook заменяет листок: машину записали → наз
 | Прайс | **Услуга × тип авто** (Hatch/Sedan, SUV, Bakkie, Minibus/Van) |
 | Язык интерфейса и лендинга | **Только английский** |
 | Оплата подписки | **Вручную**: 30 дней триала → оплата по EFT → продление в `/admin` |
+| Оформление | **5 тёмных тем**, светлой нет: Carbon (по умолчанию), Volt, Midnight, Noir, Classic (прежний дизайн). Владелец выбирает в Settings → Look, посетитель — на лендинге |
 
 ### Исследование рынка (на 30.09.2026, для решений о цене)
 - Конкуренты в ЮАР:
@@ -44,7 +45,7 @@ Python 3.12 · Flask 3.1 · SQLite (WAL) · серверные Jinja-шабло�
 
 ```
 app/__init__.py   create_app(): конфиг из env, ProxyFix, CSRF, CSP/заголовки, фильтры шаблонов
-app/db.py         схема SQLite (CREATE IF NOT EXISTS — миграций нет, новые колонки добавлять вручную ALTER)
+app/db.py         схема SQLite (CREATE IF NOT EXISTS; новые колонки — в CREATE TABLE и в ADDED_COLUMNS, там ALTER для старых баз)
 app/owner.py      /app — доска, приём/редактирование визита, машины, отчёты, настройки
 app/public.py     /, /signup, /login, /logout, POST /demo, /privacy, /robots.txt, /healthz
 app/admin.py      /admin — пароль из ADMIN_PASSWORD (пусто = 404)
@@ -52,6 +53,10 @@ app/queries.py    общие запросы: прайс, визиты, лоял�
 app/reports.py    отчёты, скорость мойщиков, заработок
 app/seed.py       стартовый прайс для новой мойки, генерация демо, очистка демо
 app/utils.py      время, деньги, телефоны, номера авто, wa.me
+app/themes.py     список тем и выбор текущей: тема мойки → cookie посетителя → THEME
+app/static/style.css         вся вёрстка + токены темы Classic + @font-face всех шрифтов
+app/static/themes/<name>.css  остальные темы: переопределяют токены и немного правил, грузятся после style.css
+app/static/fonts/            шрифты тем (свои файлы, без CDN)
 tests/            pytest (conftest.Browser сам подставляет CSRF-токен)
 deploy/           setup-vm.sh, update.sh, backup.sh
 ```
@@ -74,12 +79,13 @@ deploy/           setup-vm.sh, update.sh, backup.sh
 - Истёкшая подписка: данные видны, но `/app/new` не пускает.
 - Вёрстка mobile-first. После изменений UI проверять ширину 390px на **горизонтальный скролл** (`document.documentElement.scrollWidth`). Скрытые input'ы уже раз ломали ширину страницы.
 - Стиль кода: без лишних комментариев, короткие функции, код на английском.
+- Темы: цвета только через токены (`--bg`, `--card`, `--accent`, `--blue` = «моется», `--wa` = «готово» и т. д.). `tenants.theme = ''` значит тема по умолчанию. Выбор посетителя на лендинге (cookie `theme`) копируется в новую мойку и демо. После правок UI смотреть экран **во всех 5 темах** на 390px (у тем разные шрифты, скругления и ширина текста).
 
 ## Команды
 ```bash
 python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
 ADMIN_PASSWORD=admin flask --app app run --debug   # локально, база в ./data
-pytest -q                                          # 23 теста
+pytest -q                                          # 25 тестов
 ```
 Деплой (подробно в README.md):
 ```bash
@@ -87,7 +93,7 @@ bash deploy/setup-vm.sh && nano .env && sudo docker compose up -d --build
 bash deploy/update.sh   # обновление
 bash deploy/backup.sh   # бэкап SQLite в backups/
 ```
-Переменные окружения: `DOMAIN`, `SECRET_KEY`, `ADMIN_PASSWORD`, `SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`, `PRICE_MONTHLY`, `TRIAL_DAYS`, `APP_NAME`, `COOKIE_SECURE`, `DATA_DIR`, `BACKUP_BUCKET` (см. `.env.example`).
+Переменные окружения: `DOMAIN`, `SECRET_KEY`, `ADMIN_PASSWORD`, `SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`, `PRICE_MONTHLY`, `TRIAL_DAYS`, `APP_NAME`, `THEME`, `COOKIE_SECURE`, `DATA_DIR`, `BACKUP_BUCKET` (см. `.env.example`).
 
 ## Особенности облачной песочницы Claude Code
 - Системный `pip install flask` падает (конфликт debian-пакета blinker) → ставить в venv.
@@ -98,6 +104,7 @@ bash deploy/backup.sh   # бэкап SQLite в backups/
 
 ## Состояние на 30.09.2026
 - Весь код в ветке `claude/funny-sagan-72z8o5` (первый коммит в репозитории). PR не создавался, в `main` не мержилось.
+- Тёмные темы и выбор оформления — в ветке `claude/clever-dijkstra-rrd16o` (поверх funny-sagan). Тоже не смержено.
 - **Ещё не задеплоено.** Не проверены HTTPS на реальном домене и отправка WhatsApp с реального телефона. Стек docker compose + Caddy проверен по http.
 - `/privacy` — шаблон под POPIA, перед запуском показать юристу.
 - Стартовые цены в `seed.py` условные.

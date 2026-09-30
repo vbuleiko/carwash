@@ -1,0 +1,21 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import icon %}
+{% block page_title %}Look{% endblock %}
+{% block top_left %}<a class="topbar-back" href="{{ url_for('owner.settings') }}">{{ icon('back') }} Look</a>{% endblock %}
+{% block content %}
+<form method="post" class="themes">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  {% for key, t in themes.items() %}
+  <button name="theme" value="{{ key }}" class="theme-tile theme-{{ key }}" aria-pressed="{{ 'true' if key == theme else 'false' }}"
+          style="--t-bg: {{ t.bg }}; --t-card: {{ t.card }}; --t-accent: {{ t.accent }}; --t-ink: {{ t.ink }}">
+    <span class="theme-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="theme-text">
+      <b class="theme-name">{{ t.name }}</b>
+      <span>{{ t.about }}</span>
+    </span>
+    {% if key == theme %}{{ icon('check') }}{% endif %}
+  </button>
+  {% endfor %}
+</form>
+<p class="muted small center">Changes the look on all your phones. Your data stays the same.</p>
+{% endblock %}

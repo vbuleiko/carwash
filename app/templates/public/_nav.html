@@ -1,5 +1,6 @@
+{% from "_macros.html" import logo %}
 <header class="site-nav">
-  <a class="logo" href="{{ url_for('public.landing') }}"><img src="{{ url_for('static', filename='icon.svg') }}" alt="" width="28" height="28"> {{ config.APP_NAME }}</a>
+  <a class="logo" href="{{ url_for('public.landing') }}">{{ logo() }} {{ config.APP_NAME }}</a>
   <nav>
     {% if session.tenant_id %}
       <a class="btn primary" href="{{ url_for('owner.board') }}">Open app</a>

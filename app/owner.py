@@ -16,7 +16,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import queries, reports
+from . import queries, reports, themes
 from .db import get_db
 from .utils import (
     TIMEZONES,
@@ -581,6 +581,19 @@ def settings_staff():
             flash("Staff saved.")
         return redirect(url_for(".settings_staff"))
     return render_template("app/settings_staff.html", washers=washers)
+
+
+@bp.route("/settings/theme", methods=["GET", "POST"])
+def settings_theme():
+    if request.method == "POST":
+        name = request.form.get("theme", "")
+        if name not in themes.THEMES:
+            abort(400)
+        db = get_db()
+        with db:
+            db.execute("UPDATE tenants SET theme = ? WHERE id = ?", (name, _tid()))
+        return themes.remember(redirect(url_for(".settings_theme")), name)
+    return render_template("app/settings_theme.html")
 
 
 @bp.route("/settings/account", methods=["GET", "POST"])

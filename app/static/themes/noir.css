@@ -1,5 +1,3 @@
-@font-face { font-family: "Archivo"; src: url(/static/fonts/archivo.woff2) format("woff2"); font-weight: 100 900; font-stretch: 62% 125%; font-display: swap; }
-
 :root {
   --bg: #0b0a09; --card: #12110f; --card-2: #1a1814; --text: #f1ece3; --muted: #8f877a; --line: #26221d; --edge: #3a342b;
   --accent: #c9a56b; --accent-soft: #221c12; --accent-ink: #0b0a09;
@@ -66,7 +64,6 @@ th { letter-spacing: .14em; font-size: .6rem; }
 .card > h2 { text-transform: uppercase; letter-spacing: .24em; font-size: .68rem; font-stretch: 125%; color: var(--muted); }
 .flash { background: transparent; border-left: 1px solid var(--accent); border-radius: 0; }
 dialog.sheet { border-radius: 2px; background: var(--card); border-color: var(--edge); }
-.bubble { background: #005c4b; color: #e9edef; }
 
 .eyebrow { letter-spacing: .32em; font-size: .64rem; }
 .hero h1 { font-size: clamp(1.9rem, 7.4vw, 3.3rem); font-weight: 400; line-height: 1.08; letter-spacing: -.005em; }

@@ -1,11 +1,3 @@
-@font-face { font-family: "Barlow"; src: url(/static/fonts/barlow-400.woff2) format("woff2"); font-weight: 400; font-display: swap; }
-@font-face { font-family: "Barlow"; src: url(/static/fonts/barlow-500.woff2) format("woff2"); font-weight: 500; font-display: swap; }
-@font-face { font-family: "Barlow"; src: url(/static/fonts/barlow-600.woff2) format("woff2"); font-weight: 600; font-display: swap; }
-@font-face { font-family: "Barlow"; src: url(/static/fonts/barlow-700.woff2) format("woff2"); font-weight: 700; font-display: swap; }
-@font-face { font-family: "Barlow Condensed"; src: url(/static/fonts/barlow-condensed-500.woff2) format("woff2"); font-weight: 500; font-display: swap; }
-@font-face { font-family: "Barlow Condensed"; src: url(/static/fonts/barlow-condensed-600.woff2) format("woff2"); font-weight: 600; font-display: swap; }
-@font-face { font-family: "Barlow Condensed"; src: url(/static/fonts/barlow-condensed-700.woff2) format("woff2"); font-weight: 700; font-display: swap; }
-
 :root {
   --bg: #0a0a0a; --card: #141414; --card-2: #1c1c1c; --text: #f2f2f2; --muted: #8c8c8c; --line: #242424;
   --accent: #ff5a1f; --accent-soft: #2b1409; --accent-ink: #0a0a0a;
@@ -68,7 +60,6 @@ th { letter-spacing: .14em; }
 .card > h2 { font-size: 1.15rem; letter-spacing: .1em; }
 .flash { border-left: 3px solid var(--accent); border-radius: 3px; }
 dialog.sheet { border-radius: 6px; background: #121212; }
-.bubble { background: #005c4b; color: #e9edef; }
 
 .eyebrow { font-family: var(--display); letter-spacing: .24em; font-size: .9rem; }
 .hero h1 { font-size: clamp(2.7rem, 10vw, 4.8rem); line-height: .92; letter-spacing: .005em; }

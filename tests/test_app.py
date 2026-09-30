@@ -291,6 +291,32 @@ def test_expired_subscription_blocks_new_cars(owner, db):
     assert resp.status_code == 302
 
 
+def test_owner_picks_a_look(owner, db):
+    assert b"themes/carbon.css" in owner.get("/app/").data
+    resp = owner.post("/app/settings/theme", {"theme": "noir"})
+    assert resp.status_code == 302 and "theme=noir" in resp.headers["Set-Cookie"]
+    assert db.execute("SELECT theme FROM tenants").fetchone()[0] == "noir"
+    assert b"themes/noir.css" in owner.get("/app/settings").data
+    assert owner.post("/app/settings/theme", {"theme": "nope"}).status_code == 400
+    owner.post("/app/settings/theme", {"theme": "classic"})
+    assert b"themes/" not in owner.get("/app/").data
+
+
+def test_visitor_look_carries_into_signup_and_demo(app, browser, db):
+    assert b"themes/carbon.css" in browser.get("/").data
+    browser.post("/theme", {"theme": "nope"})
+    assert b"themes/carbon.css" in browser.get("/").data
+    resp = browser.post("/theme", {"theme": "volt"})
+    assert resp.status_code == 302 and resp.location.endswith("/#look")
+    assert b"themes/volt.css" in browser.get("/").data
+    browser.post("/demo")
+    assert db.execute("SELECT theme FROM tenants WHERE is_demo = 1").fetchone()[0] == "volt"
+    browser.post("/logout")
+    browser.get("/signup")
+    signup(browser)
+    assert db.execute("SELECT theme FROM tenants WHERE is_demo = 0").fetchone()[0] == "volt"
+
+
 # --- demo & admin -------------------------------------------------------------
 
 def test_demo_sandbox(app, browser, db):

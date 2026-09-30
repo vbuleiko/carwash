@@ -8,7 +8,7 @@ from pathlib import Path
 from flask import Flask, g, render_template
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from . import admin, db, owner, public, seed
+from . import admin, db, owner, public, seed, themes
 from .security import check_csrf, csrf_token
 from .utils import fmt_minutes, format_phone, money, money_input, to_local, wa_link
 
@@ -40,6 +40,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         SUPPORT_WHATSAPP=os.environ.get("SUPPORT_WHATSAPP", ""),
         SUPPORT_EMAIL=os.environ.get("SUPPORT_EMAIL", ""),
         TRIAL_DAYS=int(os.environ.get("TRIAL_DAYS", "30")),
+        THEME=os.environ.get("THEME", "carbon"),
         RATELIMIT_ENABLED=True,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
@@ -74,6 +75,10 @@ def create_app(test_config: dict | None = None) -> Flask:
     def local_filter(value, fmt="%H:%M"):
         dt = to_local(value, g.tz) if value and "tz" in g else None
         return dt.strftime(fmt) if dt else ""
+
+    @app.context_processor
+    def theme():
+        return {"theme": themes.current(), "themes": themes.THEMES}
 
     @app.context_processor
     def support_link():
