@@ -13,7 +13,7 @@
   <h2>Get set up in 2 minutes</h2>
   <ol>
     <li><a href="{{ url_for('owner.settings_prices') }}">Check your price list</a> — we filled in typical prices.</li>
-    <li><a href="{{ url_for('owner.settings_staff') }}">Add your washers</a> — to see who's fastest and what they earned.</li>
+    <li><a href="{{ url_for('owner.settings_staff') }}">Add your washers</a> — to see who's fastest.</li>
     <li><a href="{{ url_for('owner.settings_business') }}">Add your Google review link</a> — to ask happy customers for reviews.</li>
     <li><a href="{{ url_for('owner.new_visit') }}">Add your first car</a>.</li>
   </ol>
@@ -62,7 +62,7 @@
       {% endfor %}
     </div>
     {% else %}
-    <p class="muted small">Tip: <a href="{{ url_for('owner.settings_staff') }}">add your washers</a> to track speed and pay.</p>
+    <p class="muted small">Tip: <a href="{{ url_for('owner.settings_staff') }}">add your washers</a> to see who's fastest.</p>
     {% endif %}
     <div class="row">
       <button type="button" class="btn" data-close>Cancel</button>

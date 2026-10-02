@@ -56,7 +56,7 @@
           <span>
             <small>{{ d.date.strftime('%a') }}</small>
             <b>{{ d.date.day }}</b>
-            <small>{% if d.full %}Full{% elif not d.slots %}Closed{% elif loop.first %}Today{% else %}{{ d.date.strftime('%b') }}{% endif %}</small>
+            <small data-note>{% if d.full %}Full{% elif not d.slots %}Closed{% elif loop.first %}Today{% else %}{{ d.date.strftime('%b') }}{% endif %}</small>
           </span>
         </label>
         {% endfor %}
@@ -68,7 +68,7 @@
         <div class="time-grid">
           {% for s in slots %}
           <label class="time-opt">
-            <input type="radio" name="slot" value="{{ s.value }}" data-label="{{ d.name }}, {{ s.time }}" {{ 'checked' if s.value == form.slot }}>
+            <input type="radio" name="slot" value="{{ s.value }}" data-label="{{ d.name }}, {{ s.time }}" data-fit="{{ s.fit }}" {{ 'checked' if s.value == form.slot }}>
             <span>{{ s.time }}{% if s.left == 1 and t.slot_capacity > 1 %}<small>1 left</small>{% endif %}</span>
           </label>
           {% endfor %}
@@ -76,6 +76,7 @@
         {% endfor %}
       </div>
       {% endif %}{% endfor %}
+      <p class="empty" id="no-fit" hidden>No time is free that long in the next two weeks.{{ ' Message us on WhatsApp and we’ll fit you in.' if wa }}</p>
       {% else %}
       <p class="empty">No free times in the next two weeks.{{ ' Message us on WhatsApp and we’ll fit you in.' if wa }}</p>
       {% endif %}

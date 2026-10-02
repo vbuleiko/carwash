@@ -139,20 +139,27 @@ def set_services(db, visit_id: int, service_ids, matrix, car_type_id):
 
 
 def set_washers(db, tenant_id: int, visit_id: int, washer_ids):
-    """Replace the team on a visit. Pay rules of washers already on it are kept."""
+    """Replace the team on a visit."""
     washer_ids = [int(w) for w in washer_ids]
     marks = ",".join("?" * len(washer_ids))
     db.execute(
         f"DELETE FROM visit_washers WHERE visit_id = ? AND washer_id NOT IN ({marks})",
         (visit_id, *washer_ids),
     )
-    for w in db.execute(
-        f"SELECT * FROM washers WHERE tenant_id = ? AND id IN ({marks})", (tenant_id, *washer_ids)
-    ).fetchall():
-        db.execute(
-            "INSERT OR IGNORE INTO visit_washers (visit_id, washer_id, pay_type, pay_value) VALUES (?, ?, ?, ?)",
-            (visit_id, w["id"], w["pay_type"], w["pay_value"]),
-        )
+    db.execute(
+        f"INSERT OR IGNORE INTO visit_washers (visit_id, washer_id) "
+        f"SELECT ?, id FROM washers WHERE tenant_id = ? AND id IN ({marks})",
+        (visit_id, tenant_id, *washer_ids),
+    )
+
+
+def on_board(db, vehicle_id: int, except_visit: int = 0):
+    """The car's visit that is still waiting, washing or ready, if any."""
+    return db.execute(
+        "SELECT id, status FROM visits WHERE vehicle_id = ? AND id != ? AND status IN ('queued', 'washing', 'ready') "
+        "ORDER BY id DESC LIMIT 1",
+        (vehicle_id, except_visit),
+    ).fetchone()
 
 
 def status_updates(visit, new_status: str, now: str | None = None) -> dict:

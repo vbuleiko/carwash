@@ -5,7 +5,7 @@
     <div class="visit-top">
       <span class="booking-time">{{ b.slot_at|local }}</span>
       <b class="booking-name">{{ b.name }}</b>
-      {% if listed %}<span class="pill pill-{{ b.status }}">{{ statuses[b.status] }}</span>{% endif %}
+      {% if listed %}<span class="pill pill-{{ b.status }}">{{ 'Customer cancelled' if b.cancelled_by == 'customer' else statuses[b.status] }}</span>{% endif %}
     </div>
     <div class="visit-meta">{{ b.services|join(', ') }} · <b>{{ b.price_cents|money }}</b></div>
     <div class="visit-meta">{{ [b.car_type, b.plate]|select|join(' · ') }}{% if b.phone %} · <a href="{{ b.wa_chat }}" target="_blank" rel="noopener" data-preview data-msg="(opens a WhatsApp chat with {{ b.phone_display }})">{{ b.phone_display }}</a>{% endif %}</div>
@@ -19,10 +19,7 @@
       <a class="btn {{ 'primary' if b.status == 'confirmed' }}" href="{{ url_for('owner.new_visit', booking=b.id) }}">{{ icon('check') }} Arrived</a>
     {% endif %}
     {% if listed and b.status in ('new', 'confirmed') %}
-      <form method="post" action="{{ url_for('owner.cancel_booking', bid=b.id) }}" data-confirm="Cancel {{ b.name }}'s booking?">
-        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-        <button class="link small cancel-link">Cancel</button>
-      </form>
+      <a class="link small cancel-link" href="{{ b.wa_cancel }}" target="_blank" rel="noopener" data-mark="{{ url_for('owner.cancel_booking', bid=b.id) }}" data-msg="{{ b.msg_cancel }}" data-ask="Cancel {{ b.name }}'s booking? WhatsApp opens with a message for them.">Cancel</a>
     {% endif %}
   </div>
 </article>

@@ -23,6 +23,7 @@ from .utils import (
     now_utc,
     phone_is_valid,
     to_local,
+    ts,
     zone,
 )
 
@@ -111,7 +112,8 @@ def render_page(tenant, form=None):
         car_types=car_types,
         services=services,
         matrix=matrix,
-        price_data={"matrix": {str(s): {str(t): p for t, p in row.items()} for s, row in matrix.items()}},
+        price_data={"matrix": {str(s): {str(t): p for t, p in row.items()} for s, row in matrix.items()},
+                    "minutes": {str(s["id"]): s["minutes"] for s in services}, "slot": bookings.SLOT},
         days=days,
         picked_day=picked_day,
         car_type_id=car_type_id,
@@ -163,13 +165,14 @@ def book(slug):
     if not errors and not limiter.allow(f"book:{tenant['id']}:{client_ip()}", 10, 3600):  # mobile networks share IPs
         errors.append("Too many bookings from this network. Please try again later.")
     if not errors:
+        minutes = sum(s["minutes"] for s in services if s["id"] in chosen)
         db.execute("BEGIN IMMEDIATE")  # two people taking the last place at once
         with db:
-            slot_at = bookings.free_slot(db, tenant, f.get("slot"))
+            slot_at = bookings.free_slot(db, tenant, f.get("slot"), minutes)
             if slot_at:
                 code = bookings.create(
-                    db, tenant["id"], slot_at=slot_at, name=name, phone=phone, plate=clean_plate(f.get("plate")),
-                    car_type_id=car_type_id, service_ids=chosen,
+                    db, tenant["id"], slot_at=slot_at, minutes=minutes, name=name, phone=phone,
+                    plate=clean_plate(f.get("plate")), car_type_id=car_type_id, service_ids=chosen,
                     price_cents=sum(matrix.get(s, {}).get(car_type_id, 0) for s in chosen),
                     note=f.get("note", "").strip()[:200],
                 )
@@ -189,17 +192,42 @@ STATUS_TITLES = {
 }
 
 
-@bp.get("/<slug>/<code>")
-def done(slug, code):
-    tenant = _by_slug(slug)
+def _by_code(tenant, code: str) -> dict:
     db = get_db()
     rows = db.execute(bookings.SELECT + " WHERE b.tenant_id = ? AND b.code = ?", (tenant["id"], code)).fetchall()
     if not rows:
         abort(404)
-    b = bookings.with_services(db, rows)[0]
+    return bookings.with_services(db, rows)[0]
+
+
+def _can_cancel(b) -> bool:
+    return b["status"] in ("new", "confirmed") and b["slot_at"] > ts()
+
+
+@bp.get("/<slug>/<code>")
+def done(slug, code):
+    tenant = _by_slug(slug)
+    b = _by_code(tenant, code)
     when = bookings.message_values(tenant, b)
     when["day"] = bookings.day_name(to_local(b["slot_at"], g.tz).date(), g.today)
-    tell = (f"Hi {tenant['name']}! I've booked {when['services']} for {when['date']} at {when['time']}. "
-            f"— {b['name']}" + (f", {b['plate']}" if b["plate"] else ""))
+    on = f"for {when['date']} at {when['time']}"
+    if b["status"] != "cancelled":
+        tell = f"Hi {tenant['name']}! I've booked {when['services']} {on}. — {b['name']}"
+        tell += f", {b['plate']}" if b["plate"] else ""
+    elif b["cancelled_by"] == "customer":
+        tell = f"Hi {tenant['name']}! I've cancelled my booking {on}. — {b['name']}"
+    else:
+        tell = f"Hi {tenant['name']}! My booking {on} was cancelled. Can we find another time? — {b['name']}"
     return render_template("site/done.html", b=b, when=when, title=STATUS_TITLES[b["status"]], tell=tell,
-                           tell_link=_wa(tenant, tell), **_common(tenant))
+                           tell_link=_wa(tenant, tell), can_cancel=_can_cancel(b), **_common(tenant))
+
+
+@bp.post("/<slug>/<code>/cancel")
+def cancel(slug, code):
+    tenant = _by_slug(slug)
+    b = _by_code(tenant, code)
+    if _can_cancel(b):
+        db = get_db()
+        with db:
+            db.execute("UPDATE bookings SET status = 'cancelled', cancelled_by = 'customer' WHERE id = ?", (b["id"],))
+    return redirect(url_for(".done", slug=slug, code=code))

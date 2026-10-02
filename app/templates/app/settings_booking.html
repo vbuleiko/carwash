@@ -25,14 +25,14 @@
       <select name="to_{{ i }}" aria-label="{{ name }} closes">{% for tm in times %}<option {{ 'selected' if tm == end }}>{{ tm }}</option>{% endfor %}</select>
     </div>
     {% endfor %}
-    <p class="muted small">Customers can pick a time every 30 minutes, up to two weeks ahead. The last time is 30 minutes before closing.</p>
+    <p class="muted small">Customers can pick a time every 30 minutes, up to two weeks ahead. A booking holds its place for as long as its services take (<a href="{{ url_for('owner.settings_prices') }}">Price list</a>, in whole half hours) and has to end by closing time.</p>
   </section>
 
   <section class="card stack">
     <label class="field">
       <span>Cars at the same time</span>
       <input name="slot_capacity" value="{{ request.form.slot_capacity or g.tenant.slot_capacity }}" inputmode="numeric" pattern="[0-9]*" maxlength="2">
-      <small class="muted">How many booked cars you can take for one time — e.g. 2 if two teams wash. Full times are hidden.</small>
+      <small class="muted">How many booked cars you can wash at once — e.g. 2 if two teams wash. Full times are hidden.</small>
     </label>
   </section>
 

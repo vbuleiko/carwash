@@ -3,7 +3,7 @@
 {% block page_title %}New car{% endblock %}
 {% block top_left %}<a class="topbar-back" href="{{ url_for('owner.board') }}">{{ icon('back') }} New car</a>{% endblock %}
 {% block content %}
-<form method="post" id="visit-form" class="stack card" data-mode="new" data-lookup="{{ url_for('owner.lookup') }}" data-disc="{{ url_for('owner.disc_lookup') }}">
+<form method="post" id="visit-form" class="stack card" data-mode="new" data-booking="{{ booking.id if booking else '' }}" data-lookup="{{ url_for('owner.lookup') }}" data-disc="{{ url_for('owner.disc_lookup') }}">
   <button type="button" class="btn big wide scan-btn" id="scan-disc" hidden
           data-decoder="{{ url_for('static', filename='vendor/barcode-detector.js') }}">{{ icon('scan') }} Scan licence disc</button>
   {% if booking %}<p class="booking-note">{{ icon('calendar') }} <span>Booked by <b>{{ booking.name }}</b> for {{ booking.slot_at|local }}{{ ' — check the plate' if not booking.plate }}</span></p>{% endif %}

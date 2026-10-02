@@ -84,6 +84,10 @@
     // WhatsApp link that also records something (ready / review asked)
     const mark = e.target.closest("[data-mark]");
     if (mark) {
+      if (mark.dataset.ask && !confirm(mark.dataset.ask)) {
+        e.preventDefault();
+        return;
+      }
       if (isDemo) {
         e.preventDefault();
         showPreview(mark);
@@ -132,22 +136,56 @@
 
     function update() {
       const type = form.querySelector('input[name="car_type_id"]:checked')?.value;
-      let cents = 0, count = 0;
+      let cents = 0, count = 0, minutes = 0;
       const boxes = [...form.querySelectorAll('input[name="service_id"]')];
       boxes.forEach((cb) => {
         const p = (data.matrix[cb.value] || {})[type];
         cb.parentElement.querySelector(".svc-price").textContent = p != null ? money(p) : "";
         cb.disabled = p == null;  // no price for this car: not bookable online
         if (cb.disabled) cb.checked = false;
-        if (cb.checked) { cents += p; count += 1; }
+        if (cb.checked) { cents += p; count += 1; minutes += data.minutes[cb.value] || 0; }
         cb.setCustomValidity("");
       });
       const first = boxes.find((cb) => !cb.disabled);
       if (first && !count) first.setCustomValidity("Pick at least one service.");
       total.textContent = count ? money(cents) : "—";
+      fitTimes(minutes);
       const slot = form.querySelector('input[name="slot"]:checked');
       when.textContent = slot ? slot.dataset.label : "Pick a time";
       if (slot) sum.classList.remove("need");
+    }
+
+    // a booking holds its place for its services' time: hide the times it can't start at
+    function fitTimes(minutes) {
+      const need = Math.max(1, Math.ceil(minutes / data.slot)) * data.slot;
+      let firstOpen = null;
+      form.querySelectorAll(".times").forEach((block) => {
+        let any = false;
+        block.querySelectorAll(".time-grid").forEach((grid) => {
+          let shown = 0;
+          grid.querySelectorAll('input[name="slot"]').forEach((r) => {
+            const fits = Number(r.dataset.fit) >= need;
+            r.closest(".time-opt").hidden = !fits;
+            if (!fits) r.checked = false;
+            shown += fits;
+          });
+          grid.hidden = grid.previousElementSibling.hidden = !shown;
+          any = any || shown > 0;
+        });
+        const day = form.querySelector('input[name="day"][value="' + block.dataset.day + '"]');
+        const note = day.parentElement.querySelector("[data-note]");
+        if (!("was" in note.dataset)) note.dataset.was = note.textContent;
+        note.textContent = any ? note.dataset.was : "Full";
+        day.disabled = !any;
+        if (!any) day.checked = false;
+        if (any && !firstOpen) firstOpen = day;
+      });
+      if (!form.querySelector('input[name="day"]:checked') && firstOpen) {
+        firstOpen.checked = true;
+        showDay(firstOpen.value);
+      }
+      const noFit = document.getElementById("no-fit");
+      if (noFit) noFit.hidden = !!firstOpen;
     }
 
     function showDay(day) {
@@ -274,11 +312,23 @@
       recalc();
       return;
     }
+    if (d.on_board) {
+      const b = document.createElement("b");
+      const open = document.createElement("a");
+      b.textContent = "Already on the board";
+      open.href = d.on_board.url;
+      open.textContent = "Open it";
+      info.textContent = "";
+      info.append(b, " · " + d.on_board.status + " · ", open);
+      info.hidden = false;
+      recalc();
+      return;
+    }
 
     auto = { fields: [], boxes: [] };
     fillIfEmpty("#make", d.make);
     fillIfEmpty("#phone", d.phone_display);
-    if (d.car_type_id) {
+    if (d.car_type_id && !form.dataset.booking) {  // a booking keeps the car type the customer picked
       const radio = form.querySelector('input[name="car_type_id"][value="' + d.car_type_id + '"]');
       const current = form.querySelector('input[name="car_type_id"]:checked');
       if (radio && !radio.checked) {

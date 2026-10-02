@@ -3,6 +3,7 @@
 {% block page_title %}Price list{% endblock %}
 {% block top_left %}<a class="topbar-back" href="{{ url_for('owner.settings') }}">{{ icon('back') }} Price list</a>{% endblock %}
 {% block content %}
+<p class="muted small">Leave a price empty if you don't do that service for that car type — customers can't book it online. <b>Takes, min</b> is how long an online booking holds its place.</p>
 <form method="post" class="stack">
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
 
@@ -31,6 +32,10 @@
         <input name="price_{{ s.id }}_{{ t.id }}" value="{{ '' if p is none else p|amount }}" inputmode="decimal" placeholder="R">
       </label>
       {% endfor %}
+      <label class="field">
+        <span>Takes, min</span>
+        <input name="service_minutes_{{ s.id }}" value="{{ s.minutes }}" inputmode="numeric" maxlength="3">
+      </label>
     </div>
   </section>
   {% endfor %}

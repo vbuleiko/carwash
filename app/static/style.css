@@ -246,7 +246,7 @@ dialog.scanner .row { margin-top: 12px; }
 .pill-new { color: var(--warn); }
 .pill-confirmed { color: var(--good); }
 .pill-arrived { color: var(--muted); }
-.visit-actions .cancel-link { color: var(--muted); }
+.link.cancel-link { color: var(--muted); }
 .booking .visit-meta a { color: var(--text); white-space: nowrap; }
 .share-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .share-icon { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); }
@@ -275,7 +275,6 @@ dialog.scanner .row { margin-top: 12px; }
 input.strong { font-weight: 700; }
 .price-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
 .staff-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
-.staff-row .pay { grid-column: 1 / -1; display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
 
 /* look picker */
 .themes { display: grid; gap: 10px; margin-bottom: 14px; }

@@ -36,7 +36,7 @@
   {% if r.staff %}
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Washer</th><th>Cars</th><th>Avg</th><th>vs usual</th><th>Earned</th></tr></thead>
+    <thead><tr><th>Washer</th><th>Cars</th><th>Avg</th><th>vs usual</th></tr></thead>
     <tbody>
     {% for s in r.staff %}
       <tr>
@@ -44,13 +44,12 @@
         <td>{{ s.cars }}</td>
         <td>{{ s.avg_minutes|minutes }}</td>
         <td>{% if s.speed is none %}<span class="muted">—</span>{% elif s.speed <= -3 %}<span class="good">−{{ -s.speed }}%</span>{% elif s.speed >= 3 %}<span class="bad">+{{ s.speed }}%</span>{% else %}avg{% endif %}</td>
-        <td>{{ s.earned|money }}</td>
       </tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
-  <p class="muted small"><b>vs usual</b> compares each washer with the usual time for the same service and car type: <span class="good">−15%</span> means 15% faster. Pay for a car washed by two people is split between them.</p>
+  <p class="muted small"><b>vs usual</b> compares each washer with the usual time for the same service and car type: <span class="good">−15%</span> means 15% faster.</p>
   {% else %}
   <p class="muted"><a href="{{ url_for('owner.settings_staff') }}">Add your washers</a> and pick them when a wash starts.</p>
   {% endif %}

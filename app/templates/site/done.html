@@ -15,7 +15,8 @@
       {% if b.status == 'new' %}We’ll confirm your booking on WhatsApp soon.
       {% elif b.status == 'confirmed' %}See you {{ when.day if when.day in ('Today', 'Tomorrow') else 'on ' ~ when.day }} at {{ when.time }}.
       {% elif b.status == 'arrived' %}Your car is in good hands.
-      {% else %}Message us on WhatsApp to find another time.{% endif %}
+      {% elif b.cancelled_by == 'customer' %}You cancelled this booking.
+      {% else %}Sorry, we had to cancel it. Message us on WhatsApp to find another time.{% endif %}
     </p>
   </section>
 
@@ -30,8 +31,14 @@
 
   <div class="cta cta-center">
     {% if tell_link and b.status != 'arrived' %}<a class="btn wa big" href="{{ tell_link }}" target="_blank" rel="noopener" data-preview data-msg="{{ tell }}">{{ icon('chat') }} Message us</a>{% endif %}
-    <a class="btn big" href="{{ book_url }}">Book another car</a>
+    <a class="btn big" href="{{ book_url }}">{{ 'Book again' if b.status == 'cancelled' else 'Book another car' }}</a>
   </div>
+  {% if can_cancel %}
+  <form method="post" action="{{ url_for('site.cancel', slug=t.slug, code=b.code) }}" class="center" data-confirm="Cancel your booking for {{ when.day }}, {{ when.time }}?">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button class="link small cancel-link">Cancel booking</button>
+  </form>
+  {% endif %}
   <p class="muted small center">Keep this page — it shows your booking’s status.</p>
 </main>
 {% if t.is_demo %}{{ preview_dialog("On a real booking page this opens WhatsApp with the message ready.") }}{% endif %}

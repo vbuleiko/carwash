@@ -6,11 +6,12 @@ from collections import Counter
 from datetime import date, datetime, time, timedelta
 
 from .queries import chat_link, subscription
-from .utils import fill_template, format_phone, money, now_utc, to_local, ts, utc_bounds, zone
+from .utils import fill_template, format_phone, money, now_utc, parse_ts, to_local, ts, utc_bounds, zone
 
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 DEFAULT_HOURS = [("08:00", "17:00")] * 5 + [("08:00", "16:00"), ("09:00", "14:00")]
-TIMES = [f"{h:02d}:{m:02d}" for h in range(24) for m in (0, 30)]  # a slot every 30 minutes
+SLOT = 30  # minutes: a booking starts on the half hour and holds whole half hours
+TIMES = [f"{h:02d}:{m:02d}" for h in range(24) for m in range(0, 60, SLOT)]
 DAYS_AHEAD = 14
 LEAD_MINUTES = 30  # the soonest a customer can book
 MAX_CAPACITY = 20
@@ -19,6 +20,10 @@ STATUS_LABELS = {"new": "New", "confirmed": "Confirmed", "arrived": "Arrived", "
 MSG_BOOKING = (
     "Hi {name}! Your booking at {business} is confirmed: {date} at {time}. "
     "{services}, {price}. See you soon!"
+)
+MSG_CANCEL = (
+    "Hi {name}, sorry — we have to cancel your booking at {business} on {date} at {time}. "
+    "Reply here and we'll find you another time."
 )
 SLUG_RE = re.compile(r"[a-z0-9][a-z0-9-]{1,38}[a-z0-9]")
 
@@ -56,35 +61,56 @@ def day_name(d: date, today: date) -> str:
     return f"{d:%a} {d.day} {d:%b}"
 
 
+def slot_minutes(minutes: int) -> int:
+    """How long a booking holds its place: its services' time in whole half hours, at least one."""
+    return max(1, -(-minutes // SLOT)) * SLOT
+
+
 def days(db, tenant, now: datetime | None = None) -> list[dict]:
-    """The next two weeks with the times that still have room, in the car wash's time zone."""
+    """The next two weeks with the times that still have room, in the car wash's time zone.
+    A time's `fit` is how long a booking can last from then: free half hours in a row, up to closing."""
     tz = zone(tenant["timezone"])
     now = now or now_utc()
     today = now.astimezone(tz).date()
     earliest = now + timedelta(minutes=LEAD_MINUTES)
-    start, end = utc_bounds(today, today + timedelta(days=DAYS_AHEAD), tz)
-    marks = ",".join("?" * len(TAKING_A_PLACE))
-    taken = Counter(r[0] for r in db.execute(
-        f"SELECT slot_at FROM bookings WHERE tenant_id = ? AND status IN ({marks}) AND slot_at >= ? AND slot_at < ?",
-        (tenant["id"], *TAKING_A_PLACE, start, end),
-    ))
+    busy = _busy(db, tenant["id"], *utc_bounds(today, today + timedelta(days=DAYS_AHEAD), tz))
     week = hours(tenant)
     out = []
     for i in range(DAYS_AHEAD):
         d = today + timedelta(days=i)
         span = week[d.weekday()]
+        open_times = [t for t in TIMES if span and span[0] <= t < span[1]]
+        room = [tenant["slot_capacity"] - busy[ts(_at(d, t, tz))] for t in open_times]
         slots, ahead = [], 0
-        for t in TIMES if span else ():
-            at = datetime.combine(d, time.fromisoformat(t), tzinfo=tz)
-            if not span[0] <= t < span[1] or at < earliest:
+        for j, t in enumerate(open_times):
+            if _at(d, t, tz) < earliest:
                 continue
             ahead += 1
-            left = tenant["slot_capacity"] - taken[ts(at)]
-            if left > 0:
-                slots.append({"time": t, "left": left, "value": f"{d.isoformat()} {t}"})
+            if room[j] > 0:
+                run = next((k for k in range(j, len(room)) if room[k] <= 0), len(room)) - j
+                slots.append({"time": t, "left": room[j], "fit": run * SLOT, "value": f"{d.isoformat()} {t}"})
         out.append({"date": d, "name": day_name(d, today), "full": ahead > 0 and not slots, "slots": slots,
                     "parts": _parts(slots)})
     return out
+
+
+def _at(d: date, t: str, tz) -> datetime:
+    return datetime.combine(d, time.fromisoformat(t), tzinfo=tz)
+
+
+def _busy(db, tenant_id: int, start: str, end: str) -> Counter:
+    """Booked cars in each half hour, by the half hour's UTC timestamp."""
+    marks = ",".join("?" * len(TAKING_A_PLACE))
+    busy = Counter()
+    for r in db.execute(
+        f"SELECT slot_at, minutes FROM bookings WHERE tenant_id = ? AND status IN ({marks}) "
+        "AND slot_at >= ? AND slot_at < ?",
+        (tenant_id, *TAKING_A_PLACE, start, end),
+    ):
+        at = parse_ts(r["slot_at"])
+        for k in range(slot_minutes(r["minutes"]) // SLOT):
+            busy[ts(at + timedelta(minutes=k * SLOT))] += 1
+    return busy
 
 
 def _parts(slots) -> list:
@@ -95,24 +121,24 @@ def _parts(slots) -> list:
     return list(groups.items())
 
 
-def free_slot(db, tenant, value: str | None) -> str | None:
-    """'2026-10-03 09:30' (local) -> UTC timestamp, if that time is still open for booking."""
+def free_slot(db, tenant, value: str | None, minutes: int) -> str | None:
+    """'2026-10-03 09:30' (local) -> UTC timestamp, if a booking this long still fits from then."""
     for day in days(db, tenant):
         for slot in day["slots"]:
-            if slot["value"] == value:
-                return ts(datetime.combine(day["date"], time.fromisoformat(slot["time"]),
-                                           tzinfo=zone(tenant["timezone"])))
+            if slot["value"] == value and slot["fit"] >= slot_minutes(minutes):
+                return ts(_at(day["date"], slot["time"], zone(tenant["timezone"])))
     return None
 
 
 # --- bookings -----------------------------------------------------------------
 
-def create(db, tenant_id: int, *, slot_at, name, phone, plate, car_type_id, service_ids, price_cents, note) -> str:
+def create(db, tenant_id: int, *, slot_at, minutes, name, phone, plate, car_type_id, service_ids, price_cents,
+           note) -> str:
     code = secrets.token_urlsafe(9)
     cur = db.execute(
-        "INSERT INTO bookings (tenant_id, code, slot_at, name, phone, plate, car_type_id, price_cents, note, "
-        "created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (tenant_id, code, slot_at, name, phone, plate, car_type_id, price_cents, note, ts()),
+        "INSERT INTO bookings (tenant_id, code, slot_at, minutes, name, phone, plate, car_type_id, price_cents, "
+        "note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (tenant_id, code, slot_at, minutes, name, phone, plate, car_type_id, price_cents, note, ts()),
     )
     db.executemany("INSERT INTO booking_services (booking_id, service_id) VALUES (?, ?)",
                    [(cur.lastrowid, s) for s in service_ids])
@@ -178,10 +204,16 @@ def confirm_message(tenant, b) -> str:
     return fill_template(tenant["msg_booking"] or MSG_BOOKING, message_values(tenant, b))
 
 
+def cancel_message(tenant, b) -> str:
+    return fill_template(tenant["msg_cancel"] or MSG_CANCEL, message_values(tenant, b))
+
+
 def add_links(tenant, b: dict) -> dict:
     b["phone_display"] = format_phone(b["phone"])
     b["msg_confirm"] = confirm_message(tenant, b)
     b["wa_confirm"] = chat_link(tenant, b["phone"], b["msg_confirm"])
+    b["msg_cancel"] = cancel_message(tenant, b)
+    b["wa_cancel"] = chat_link(tenant, b["phone"], b["msg_cancel"])
     b["wa_chat"] = chat_link(tenant, b["phone"])
     return b
 

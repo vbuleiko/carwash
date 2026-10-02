@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     slot_capacity INTEGER NOT NULL DEFAULT 2,      -- cars that can be booked for the same time
     booking_on    INTEGER NOT NULL DEFAULT 1,
     msg_booking   TEXT NOT NULL DEFAULT '',
+    msg_cancel    TEXT NOT NULL DEFAULT '',
     plan          TEXT NOT NULL DEFAULT 'trial',   -- trial | paid
     paid_until    TEXT NOT NULL,                   -- YYYY-MM-DD, inclusive
     is_demo       INTEGER NOT NULL DEFAULT 0,
@@ -46,7 +47,8 @@ CREATE TABLE IF NOT EXISTS services (
     tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name      TEXT NOT NULL,
     sort      INTEGER NOT NULL DEFAULT 0,
-    active    INTEGER NOT NULL DEFAULT 1
+    active    INTEGER NOT NULL DEFAULT 1,
+    minutes   INTEGER NOT NULL DEFAULT 30          -- how long a booking for it holds a place
 );
 
 CREATE TABLE IF NOT EXISTS prices (
@@ -60,8 +62,6 @@ CREATE TABLE IF NOT EXISTS washers (
     id         INTEGER PRIMARY KEY,
     tenant_id  INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name       TEXT NOT NULL,
-    pay_type   TEXT NOT NULL DEFAULT 'percent' CHECK (pay_type IN ('percent', 'fixed')),
-    pay_value  INTEGER NOT NULL DEFAULT 0,         -- percent, or cents per car
     active     INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL
 );
@@ -107,12 +107,9 @@ CREATE TABLE IF NOT EXISTS visit_services (
     PRIMARY KEY (visit_id, service_id)
 );
 
--- pay rule is copied at assignment time so later rate changes don't rewrite history
 CREATE TABLE IF NOT EXISTS visit_washers (
     visit_id  INTEGER NOT NULL REFERENCES visits(id) ON DELETE CASCADE,
     washer_id INTEGER NOT NULL REFERENCES washers(id) ON DELETE CASCADE,
-    pay_type  TEXT NOT NULL,
-    pay_value INTEGER NOT NULL,
     PRIMARY KEY (visit_id, washer_id)
 );
 
@@ -131,6 +128,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     tenant_id    INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     code         TEXT NOT NULL,                    -- in the customer's link to their booking
     slot_at      TEXT NOT NULL,
+    minutes      INTEGER NOT NULL DEFAULT 30,      -- copied from its services when booked
     name         TEXT NOT NULL,
     phone        TEXT NOT NULL,
     plate        TEXT NOT NULL DEFAULT '',
@@ -140,6 +138,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     status       TEXT NOT NULL DEFAULT 'new'
                  CHECK (status IN ('new', 'confirmed', 'arrived', 'cancelled')),
     visit_id     INTEGER REFERENCES visits(id) ON DELETE SET NULL,
+    cancelled_by TEXT NOT NULL DEFAULT '',         -- owner | customer
     created_at   TEXT NOT NULL,
     confirmed_at TEXT
 );
@@ -171,6 +170,17 @@ ADDED_COLUMNS = [
     ("tenants", "slot_capacity", "INTEGER NOT NULL DEFAULT 2"),
     ("tenants", "booking_on", "INTEGER NOT NULL DEFAULT 1"),
     ("tenants", "msg_booking", "TEXT NOT NULL DEFAULT ''"),
+    ("tenants", "msg_cancel", "TEXT NOT NULL DEFAULT ''"),
+    ("services", "minutes", "INTEGER NOT NULL DEFAULT 30"),
+    ("bookings", "minutes", "INTEGER NOT NULL DEFAULT 30"),
+    ("bookings", "cancelled_by", "TEXT NOT NULL DEFAULT ''"),
+]
+# columns no longer used: older databases drop them
+DROPPED_COLUMNS = [
+    ("washers", "pay_type"),
+    ("washers", "pay_value"),
+    ("visit_washers", "pay_type"),
+    ("visit_washers", "pay_value"),
 ]
 # indexes on added columns: created after the ALTERs
 LATE_SCHEMA = """
@@ -205,6 +215,9 @@ def init_db(path: str):
     for table, column, decl in ADDED_COLUMNS:
         if column not in {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+    for table, column in DROPPED_COLUMNS:
+        if column in {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}:
+            conn.execute(f"ALTER TABLE {table} DROP COLUMN {column}")
     conn.executescript(LATE_SCHEMA)
     conn.commit()
     conn.close()

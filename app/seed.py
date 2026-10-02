@@ -1,19 +1,19 @@
 """Default price list for new car washes, and generated data for demo sandboxes."""
 import random
 import secrets
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 
 from . import bookings, queries
 from .utils import DEFAULT_TZ, local_today, now_utc, plate_key, ts, zone
 
 CAR_TYPES = ["Hatch / Sedan", "SUV", "Bakkie", "Minibus / Van"]
 SERVICES = [
-    # name, prices in rand per car type (same order as CAR_TYPES)
-    ("Wash & Go", [70, 90, 90, 120]),
-    ("Wash & Vac", [100, 130, 130, 170]),
-    ("Full Valet", [250, 320, 320, 400]),
-    ("Engine Wash", [80, 100, 100, 120]),
-    ("Tyre Shine", [20, 25, 25, 30]),
+    # name, minutes a booking holds, prices in rand per car type (same order as CAR_TYPES)
+    ("Wash & Go", 30, [70, 90, 90, 120]),
+    ("Wash & Vac", 45, [100, 130, 130, 170]),
+    ("Full Valet", 120, [250, 320, 320, 400]),
+    ("Engine Wash", 30, [80, 100, 100, 120]),
+    ("Tyre Shine", 10, [20, 25, 25, 30]),
 ]
 MSG_READY = (
     "Hi! Your {car} ({plate}) is ready for collection at {business}. "
@@ -30,10 +30,10 @@ def create_tenant(db, *, name, email=None, password_hash=None, phone="", city=""
     today = local_today(zone(DEFAULT_TZ))
     cur = db.execute(
         "INSERT INTO tenants (name, email, password_hash, phone, city, msg_ready, msg_review, msg_booking, "
-        "loyalty_every, paid_until, is_demo, theme, session_key, slug, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "msg_cancel, loyalty_every, paid_until, is_demo, theme, session_key, slug, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
-            name, email, password_hash, phone, city, MSG_READY, MSG_REVIEW, bookings.MSG_BOOKING,
+            name, email, password_hash, phone, city, MSG_READY, MSG_REVIEW, bookings.MSG_BOOKING, bookings.MSG_CANCEL,
             6 if is_demo else 0,
             (today + timedelta(days=trial_days)).isoformat(),
             1 if is_demo else 0,
@@ -53,8 +53,9 @@ def seed_price_list(db, tenant_id: int):
     for i, name in enumerate(CAR_TYPES):
         cur = db.execute("INSERT INTO car_types (tenant_id, name, sort) VALUES (?, ?, ?)", (tenant_id, name, i))
         type_ids.append(cur.lastrowid)
-    for i, (name, prices) in enumerate(SERVICES):
-        cur = db.execute("INSERT INTO services (tenant_id, name, sort) VALUES (?, ?, ?)", (tenant_id, name, i))
+    for i, (name, minutes, prices) in enumerate(SERVICES):
+        cur = db.execute("INSERT INTO services (tenant_id, name, sort, minutes) VALUES (?, ?, ?, ?)",
+                         (tenant_id, name, i, minutes))
         for type_id, rand in zip(type_ids, prices):
             db.execute(
                 "INSERT INTO prices (service_id, car_type_id, price_cents) VALUES (?, ?, ?)",
@@ -65,12 +66,7 @@ def seed_price_list(db, tenant_id: int):
 # --- demo ---------------------------------------------------------------------
 
 DEMO_HOURS = 24
-DEMO_WASHERS = [  # name, pay type, pay value, speed factor
-    ("Sipho", "percent", 30, 0.85),
-    ("Thabo", "percent", 30, 1.0),
-    ("Lerato", "percent", 30, 1.1),
-    ("Bongani", "fixed", 2500, 1.25),
-]
+DEMO_WASHERS = [("Sipho", 0.85), ("Thabo", 1.0), ("Lerato", 1.1), ("Bongani", 1.25)]  # name, speed factor
 DEMO_CARS = [  # make, car type index
     ("Toyota Corolla", 0), ("VW Polo", 0), ("VW Polo Vivo", 0), ("Hyundai i20", 0), ("Suzuki Swift", 0),
     ("Kia Picanto", 0), ("Renault Kwid", 0), ("BMW 3 Series", 0), ("Mercedes-Benz C-Class", 0),
@@ -119,10 +115,10 @@ def create_demo(db, now=None, theme="") -> int:
     _, _, matrix = queries.price_list(db, tenant_id)
 
     washers = []
-    for name, pay_type, pay_value, speed in DEMO_WASHERS:
+    for name, speed in DEMO_WASHERS:
         cur = db.execute(
-            "INSERT INTO washers (tenant_id, name, pay_type, pay_value, created_at) VALUES (?, ?, ?, ?, ?)",
-            (tenant_id, name, pay_type, pay_value, ts(now - timedelta(days=30))),
+            "INSERT INTO washers (tenant_id, name, created_at) VALUES (?, ?, ?)",
+            (tenant_id, name, ts(now - timedelta(days=30))),
         )
         washers.append((cur.lastrowid, speed))
 
@@ -222,21 +218,26 @@ def create_demo(db, now=None, theme="") -> int:
 
 def _demo_bookings(db, tenant_id, rng, now, vehicles, types, services, matrix):
     tenant = db.execute("SELECT * FROM tenants WHERE id = ?", (tenant_id,)).fetchone()
-    open_days = [d for d in bookings.days(db, tenant, now) if d["slots"]]
-    picks = []
-    for day, count in zip(open_days, (2, 3, 2, 1)):
-        picks += sorted(rng.sample(day["slots"], min(count, len(day["slots"]))), key=lambda s: s["time"])
+    minutes = dict(db.execute("SELECT id, minutes FROM services WHERE tenant_id = ?", (tenant_id,)).fetchall())
+    open_days = [d["date"] for d in bookings.days(db, tenant, now) if d["slots"]]
+    plan = [day for day, count in zip(open_days, (2, 3, 2, 1)) for _ in range(count)]
     tz = zone(tenant["timezone"])
-    for i, (slot, name) in enumerate(zip(picks, DEMO_BOOKERS)):
+    for i, (day, name) in enumerate(zip(plan, DEMO_BOOKERS)):
         vehicle_id, type_index, _ = vehicles[i] if i % 2 == 0 else rng.choice(vehicles[20:] or vehicles)
         car = db.execute("SELECT plate, phone FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
         main = rng.choice(["Wash & Vac", "Wash & Vac", "Full Valet", "Wash & Go"])
         chosen = [services[main]] + ([services["Tyre Shine"]] if rng.random() < 0.4 else [])
         type_id = types[type_index]
-        local = datetime.combine(date.fromisoformat(slot["value"][:10]), time.fromisoformat(slot["time"]), tzinfo=tz)
+        length = sum(minutes[s] for s in chosen)
+        free = next(d for d in bookings.days(db, tenant, now) if d["date"] == day)["slots"]
+        fits = [slot for slot in free if slot["fit"] >= bookings.slot_minutes(length)]
+        if not fits:
+            continue
+        local = datetime.combine(day, time.fromisoformat(rng.choice(fits)["time"]), tzinfo=tz)
         code = bookings.create(
-            db, tenant_id, slot_at=ts(local), name=name, phone=car["phone"], plate=car["plate"] if i % 3 else "",
-            car_type_id=type_id, service_ids=chosen, price_cents=sum(matrix[s][type_id] for s in chosen), note="",
+            db, tenant_id, slot_at=ts(local), minutes=length, name=name, phone=car["phone"],
+            plate=car["plate"] if i % 3 else "", car_type_id=type_id, service_ids=chosen,
+            price_cents=sum(matrix[s][type_id] for s in chosen), note="",
         )
         if i % 3 != 2:
             db.execute("UPDATE bookings SET status = 'confirmed', confirmed_at = ? WHERE code = ?", (ts(now), code))

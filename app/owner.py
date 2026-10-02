@@ -187,6 +187,13 @@ def _read_visit_form(db, visit=None):
     return data, errors, matrix
 
 
+def _check_not_on_board(db, data, errors, visit_id: int = 0):
+    """One car can't be on the board twice."""
+    known = queries.find_vehicle(db, _tid(), data["plate"]) if data["plate"] else None
+    if known and queries.on_board(db, known["id"], visit_id):
+        errors.append(f"{known['plate']} is already on the board. Finish or cancel that visit first.")
+
+
 def _form_context(db, form: dict):
     car_types, services, matrix = queries.price_list(
         db, _tid(),
@@ -218,8 +225,11 @@ def lookup():
     last_services = [
         r[0] for r in db.execute("SELECT service_id FROM visit_services WHERE visit_id = ?", (last["id"],))
     ] if last else []
+    board = queries.on_board(db, vehicle["id"])
     return jsonify(
         found=True,
+        on_board={"status": queries.STATUS_LABELS[board["status"]], "url": url_for(".visit", vid=board["id"])}
+        if board else None,
         plate=vehicle["plate"],
         make=vehicle["make"],
         phone=vehicle["phone"],
@@ -260,6 +270,7 @@ def new_visit():
         booking = None
     if request.method == "POST":
         data, errors, matrix = _read_visit_form(db)
+        _check_not_on_board(db, data, errors)
         if not errors:
             with db:
                 vehicle_id = queries.upsert_vehicle(
@@ -286,9 +297,10 @@ def new_visit():
         car_types, _, _ = queries.price_list(db, _tid())
         form = {"plate": request.args.get("plate", ""), "car_type_id": car_types[0]["id"] if car_types else None,
                 "service_ids": []}
-        if booking:
+        if booking:  # the price the customer was quoted; changing services recounts it
             form.update(plate=booking["plate"], phone=format_phone(booking["phone"]), note=booking["note"],
-                        car_type_id=booking["car_type_id"] or form["car_type_id"], service_ids=booking["service_ids"])
+                        car_type_id=booking["car_type_id"] or form["car_type_id"], service_ids=booking["service_ids"],
+                        price=money_input(booking["price_cents"]))
         known = queries.find_vehicle(db, _tid(), form["plate"]) if form["plate"] else None
         if known:
             form.update(plate=known["plate"], make=known["make"],
@@ -311,6 +323,8 @@ def visit(vid):
             status = v["status"]
         if status not in queries.STATUS_LABELS:
             errors.append("Unknown status.")
+        elif status in ("queued", "washing", "ready") and plate_key(data["plate"]) != plate_key(v["plate"]):
+            _check_not_on_board(db, data, errors, vid)
         if not errors:
             with db:
                 vehicle_id = queries.upsert_vehicle(
@@ -461,7 +475,7 @@ def cancel_booking(bid):
     if b["status"] not in ("new", "confirmed"):
         return _done(None, url_for(".booking_list"))
     with db:
-        db.execute("UPDATE bookings SET status = 'cancelled' WHERE id = ?", (bid,))
+        db.execute("UPDATE bookings SET status = 'cancelled', cancelled_by = 'owner' WHERE id = ?", (bid,))
     return _done(f"{b['name']}'s booking cancelled.", url_for(".booking_list"))
 
 
@@ -586,14 +600,17 @@ def settings_business():
             with db:
                 db.execute(
                     "UPDATE tenants SET name = ?, phone = ?, address = ?, review_url = ?, loyalty_every = ?, "
-                    "country_code = ?, timezone = ?, msg_ready = ?, msg_review = ?, msg_booking = ? WHERE id = ?",
+                    "country_code = ?, timezone = ?, msg_ready = ?, msg_review = ?, msg_booking = ?, msg_cancel = ? "
+                    "WHERE id = ?",
                     (name, phone, address, review_url, int(loyalty_every),
                      country_code[:4], f["timezone"], f.get("msg_ready", "").strip()[:600],
-                     f.get("msg_review", "").strip()[:600], f.get("msg_booking", "").strip()[:600], _tid()),
+                     f.get("msg_review", "").strip()[:600], f.get("msg_booking", "").strip()[:600],
+                     f.get("msg_cancel", "").strip()[:600], _tid()),
                 )
             flash("Saved.")
             return redirect(url_for(".settings"))
-    return render_template("app/settings_business.html", timezones=TIMEZONES, msg_booking=bookings.MSG_BOOKING)
+    return render_template("app/settings_business.html", timezones=TIMEZONES, msg_booking=bookings.MSG_BOOKING,
+                           msg_cancel=bookings.MSG_CANCEL)
 
 
 @bp.route("/settings/prices", methods=["GET", "POST"])
@@ -611,8 +628,12 @@ def settings_prices():
                            (name, int(f.get(f"type_active_{t['id']}") == "1"), t["id"]))
             for s in services:
                 name = f.get(f"service_name_{s['id']}", s["name"]).strip()[:40] or s["name"]
-                db.execute("UPDATE services SET name = ?, active = ? WHERE id = ?",
-                           (name, int(f.get(f"service_active_{s['id']}") == "1"), s["id"]))
+                minutes = f.get(f"service_minutes_{s['id']}", str(s["minutes"])).strip()
+                if not is_number(minutes) or int(minutes) > 600:
+                    bad.append(f"{name}: minutes")
+                    minutes = s["minutes"]
+                db.execute("UPDATE services SET name = ?, active = ?, minutes = ? WHERE id = ?",
+                           (name, int(f.get(f"service_active_{s['id']}") == "1"), int(minutes), s["id"]))
                 for t in car_types:
                     field = f"price_{s['id']}_{t['id']}"
                     if field not in f:  # hidden car type: leave its prices alone
@@ -639,7 +660,7 @@ def settings_prices():
                 db.execute("INSERT INTO services (tenant_id, name, sort) VALUES (?, ?, ?)",
                            (_tid(), new_service, len(services)))
         if bad:
-            flash("Some prices weren't numbers and were skipped: " + ", ".join(bad), "error")
+            flash("Some numbers were wrong and were skipped: " + ", ".join(bad), "error")
         else:
             flash("Price list saved." + (" Now set prices for the new row." if new_type or new_service else ""))
         return redirect(url_for(".settings_prices"))
@@ -653,42 +674,16 @@ def settings_staff():
     washers = db.execute("SELECT * FROM washers WHERE tenant_id = ? ORDER BY active DESC, name", (_tid(),)).fetchall()
     if request.method == "POST":
         f = request.form
-        errors = []
-
-        def pay(prefix):
-            pay_type = "fixed" if f.get(f"{prefix}_pay_type") == "fixed" else "percent"
-            raw = f.get(f"{prefix}_pay_value", "").strip().rstrip("%").strip() or "0"
-            if pay_type == "percent":
-                value = int(raw) if is_number(raw) and int(raw) <= 100 else None
-            else:
-                value = parse_money(raw)
-            return pay_type, value
-
         with db:
             for w in washers:
                 name = f.get(f"w{w['id']}_name", "").strip()[:30] or w["name"]
-                pay_type, value = pay(f"w{w['id']}")
-                if value is None:
-                    errors.append(f"Check the pay for {name}.")
-                    continue
-                db.execute(
-                    "UPDATE washers SET name = ?, pay_type = ?, pay_value = ?, active = ? WHERE id = ?",
-                    (name, pay_type, value, int(f.get(f"w{w['id']}_active") == "1"), w["id"]),
-                )
+                db.execute("UPDATE washers SET name = ?, active = ? WHERE id = ?",
+                           (name, int(f.get(f"w{w['id']}_active") == "1"), w["id"]))
             new_name = f.get("new_name", "").strip()[:30]
             if new_name:
-                pay_type, value = pay("new")
-                if value is None:
-                    errors.append(f"Check the pay for {new_name}.")
-                else:
-                    db.execute(
-                        "INSERT INTO washers (tenant_id, name, pay_type, pay_value, created_at) VALUES (?, ?, ?, ?, ?)",
-                        (_tid(), new_name, pay_type, value, ts()),
-                    )
-        for e in errors:
-            flash(e, "error")
-        if not errors:
-            flash("Staff saved.")
+                db.execute("INSERT INTO washers (tenant_id, name, created_at) VALUES (?, ?, ?)",
+                           (_tid(), new_name, ts()))
+        flash("Staff saved.")
         return redirect(url_for(".settings_staff"))
     return render_template("app/settings_staff.html", washers=washers)
 

@@ -116,7 +116,7 @@ def test_duplicate_email_and_login(browser):
 
 def test_car_goes_through_the_whole_flow(owner, db):
     tid = tenant_id(db)
-    owner.post("/app/settings/staff", {"new_name": "Sipho", "new_pay_type": "percent", "new_pay_value": "30"})
+    owner.post("/app/settings/staff", {"new_name": "Sipho"})
     washer = db.execute("SELECT id FROM washers WHERE tenant_id = ?", (tid,)).fetchone()[0]
 
     v = add_car(owner, db)
@@ -167,8 +167,10 @@ def test_returning_customer_and_loyalty(owner, db):
         "name": "Bubbles", "loyalty_every": "3", "country_code": "27",
         "timezone": "Africa/Johannesburg", "msg_ready": "{plate} ready", "msg_review": "review {review_link}",
     })
-    add_car(owner, db, plate="GP 11 AA GP")
-    add_car(owner, db, plate="gp11aagp", phone="")  # same car, typed differently
+    v = add_car(owner, db, plate="GP 11 AA GP")
+    owner.post(f"/app/visit/{v['id']}/collected")
+    v = add_car(owner, db, plate="gp11aagp", phone="")  # same car, typed differently
+    owner.post(f"/app/visit/{v['id']}/collected")
     assert db.execute("SELECT COUNT(*) FROM vehicles").fetchone()[0] == 1
 
     d = owner.get("/app/lookup?plate=GP 11 AA GP").json
@@ -180,6 +182,26 @@ def test_returning_customer_and_loyalty(owner, db):
     assert v["is_free"] == 1 and v["price_cents"] == 0
     assert owner.get("/app/lookup?plate=GP11AAGP").json["loyalty"]["count"] == 0
     assert owner.get("/app/lookup?plate=ZZZ").json == {"found": False}
+
+
+def test_a_car_cannot_be_on_the_board_twice(owner, db):
+    tid = tenant_id(db)
+    v = add_car(owner, db)
+    d = owner.get("/app/lookup?plate=ca123456").json
+    assert d["on_board"] == {"status": "Waiting", "url": f"/app/visit/{v['id']}"}
+    resp = owner.post("/app/new", {"plate": "CA123456", "car_type_id": ids(db, "car_types", tid)[0],
+                                   "service_id": ids(db, "services", tid)[0]})
+    assert b"CA 123-456 is already on the board" in resp.data
+    assert db.execute("SELECT COUNT(*) FROM visits").fetchone()[0] == 1
+
+    other = add_car(owner, db, plate="CA 999")
+    form = {"plate": "CA 123-456", "car_type_id": ids(db, "car_types", tid)[0],
+            "service_id": ids(db, "services", tid)[0], "status": "queued", "status_was": "queued"}
+    assert b"already on the board" in owner.post(f"/app/visit/{other['id']}", form).data
+    owner.post(f"/app/visit/{v['id']}/collected")
+    assert owner.get("/app/lookup?plate=ca123456").json["on_board"] is None
+    add_car(owner, db)
+    assert db.execute("SELECT COUNT(*) FROM visits").fetchone()[0] == 3
 
 
 def test_edit_visit_and_move_status_back(owner, db):
@@ -203,7 +225,7 @@ def test_edit_visit_and_move_status_back(owner, db):
 
 def test_team_can_be_cleared_and_start_keeps_it(owner, db):
     tid = tenant_id(db)
-    owner.post("/app/settings/staff", {"new_name": "Sipho", "new_pay_type": "percent", "new_pay_value": "30"})
+    owner.post("/app/settings/staff", {"new_name": "Sipho"})
     washer = db.execute("SELECT id FROM washers").fetchone()[0]
     v = add_car(owner, db)
     form = {"plate": "CA 123-456", "phone": "082 111 2222", "car_type_id": ids(db, "car_types", tid)[0],
@@ -258,15 +280,15 @@ def test_search_and_car_page(owner, db):
 
 # --- reports ------------------------------------------------------------------
 
-def test_reports_revenue_speed_and_pay(app, db):
+def test_reports_revenue_and_speed(app, db):
     with db:
         tid = seed.create_tenant(db, name="R", email="r@example.com", password_hash="x")
         types, svcs = ids(db, "car_types", tid), ids(db, "services", tid)
         _, _, matrix = queries.price_list(db, tid)
-        fast = db.execute("INSERT INTO washers (tenant_id, name, pay_type, pay_value, created_at) "
-                          "VALUES (?, 'Fast', 'percent', 30, ?)", (tid, ts())).lastrowid
-        slow = db.execute("INSERT INTO washers (tenant_id, name, pay_type, pay_value, created_at) "
-                          "VALUES (?, 'Slow', 'fixed', 2000, ?)", (tid, ts())).lastrowid
+        fast = db.execute("INSERT INTO washers (tenant_id, name, created_at) VALUES (?, 'Fast', ?)",
+                          (tid, ts())).lastrowid
+        slow = db.execute("INSERT INTO washers (tenant_id, name, created_at) VALUES (?, 'Slow', ?)",
+                          (tid, ts())).lastrowid
         tz = zone("Africa/Johannesburg")
         morning = datetime.combine(local_today(tz), time(0, 30), tzinfo=tz)
         vehicle = queries.upsert_vehicle(db, tid, "CA 1", "", types[0], "")
@@ -287,8 +309,7 @@ def test_reports_revenue_speed_and_pay(app, db):
     assert r["cars"] == 6 and r["revenue"] == 42000 and r["avg_ticket"] == 7000
     staff = {s["name"]: s for s in r["staff"]}
     assert staff["Fast"]["speed"] == -20 and staff["Slow"]["speed"] == 20
-    assert staff["Fast"]["earned"] == 3 * 2100  # 30% of R70
-    assert staff["Slow"]["earned"] == 3 * 2000  # R20 per car
+    assert staff["Fast"]["cars"] == 3 and "earned" not in staff["Fast"]
     assert r["services"][0] == {"name": "Wash & Go", "count": 6, "revenue": 42000}
 
 
@@ -305,16 +326,19 @@ def test_price_list_and_staff_settings(owner, db):
     svc, typ = ids(db, "services", tid)[0], ids(db, "car_types", tid)[0]
     owner.post("/app/settings/prices", {
         f"price_{svc}_{typ}": "85", f"service_name_{svc}": "Quick Wash", f"service_active_{svc}": "1",
-        f"type_active_{typ}": "1", "new_service": "Wax",
+        f"service_minutes_{svc}": "20", f"type_active_{typ}": "1", "new_service": "Wax",
     })
     assert db.execute("SELECT price_cents FROM prices WHERE service_id = ? AND car_type_id = ?",
                       (svc, typ)).fetchone()[0] == 8500
-    assert db.execute("SELECT name FROM services WHERE id = ?", (svc,)).fetchone()[0] == "Quick Wash"
-    assert db.execute("SELECT COUNT(*) FROM services WHERE tenant_id = ? AND name = 'Wax'", (tid,)).fetchone()[0] == 1
+    assert db.execute("SELECT name, minutes FROM services WHERE id = ?", (svc,)).fetchone()[:] == ("Quick Wash", 20)
+    assert db.execute("SELECT minutes FROM services WHERE tenant_id = ? AND name = 'Wax'", (tid,)).fetchone()[0] == 30
+    resp = owner.post("/app/settings/prices", {f"service_minutes_{svc}": "half an hour"}, follow_redirects=True)
+    assert b"Quick Wash: minutes" in resp.data
+    assert db.execute("SELECT minutes FROM services WHERE id = ?", (svc,)).fetchone()[0] == 20
 
-    owner.post("/app/settings/staff", {"new_name": "Thabo", "new_pay_type": "fixed", "new_pay_value": "25"})
+    owner.post("/app/settings/staff", {"new_name": "Thabo"})
     w = db.execute("SELECT * FROM washers WHERE tenant_id = ?", (tid,)).fetchone()
-    assert (w["name"], w["pay_type"], w["pay_value"]) == ("Thabo", "fixed", 2500)
+    assert (w["name"], w["active"]) == ("Thabo", 1)
     for page in ("", "/business", "/prices", "/staff", "/account"):
         assert owner.get(f"/app/settings{page}").status_code == 200
 
@@ -510,11 +534,55 @@ def test_customer_books_and_owner_confirms_and_checks_in(app, owner, db):
     assert (b["status"], b["visit_id"]) == ("confirmed", None)
 
 
+def test_booking_holds_its_place_for_its_services_time(app, owner, db):
+    from app import bookings
+    tid = tenant_id(db)
+    open_all_week(owner, capacity=1)
+    with db:
+        db.execute("UPDATE tenants SET hours = ?", (json.dumps([["08:00", "12:00"]] + [None] * 6),))
+    tenant = db.execute("SELECT * FROM tenants").fetchone()
+    monday = datetime(2026, 10, 5, 4, 0, tzinfo=zone("UTC"))  # 06:00 in Johannesburg
+
+    def fits(now=monday):
+        return {s["time"]: s["fit"] for s in bookings.days(db, tenant, now)[0]["slots"]}
+
+    assert fits()["08:00"] == 240 and fits()["11:30"] == 30
+    with db:
+        bookings.create(db, tid, slot_at="2026-10-05 07:00:00", minutes=110, name="Valet", phone="27831112222",
+                        plate="", car_type_id=None, service_ids=[], price_cents=0, note="")  # 09:00 to 11:00
+    assert fits() == {"08:00": 60, "08:30": 30, "11:00": 60, "11:30": 30}
+    assert bookings.slot_minutes(45) == 60 and bookings.slot_minutes(0) == 30
+    with db:
+        db.execute("UPDATE bookings SET status = 'cancelled'")
+    assert fits()["08:00"] == 240
+
+
+def test_long_services_need_a_long_enough_time(app, owner, db):
+    tid = tenant_id(db)
+    open_all_week(owner, capacity=1)
+    types, svcs = ids(db, "car_types", tid), ids(db, "services", tid)  # Full Valet holds 120 min, Wash & Go 30
+    customer = Browser(app.test_client())
+    page = customer.get(f"/book/{SLUG}").data.decode()
+    assert '"minutes": {' in page
+    times = re.findall(r'name="slot" value="([^"]+)"[^>]*data-fit="(\d+)"', page)
+    start = next(v for v, fit in times if int(fit) >= 240)
+    at = datetime.fromisoformat(start)
+    later = lambda minutes: (at + timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M")
+    assert book(customer, start, [svcs[2]], types[0]).status_code == 302
+    assert db.execute("SELECT minutes FROM bookings").fetchone()[0] == 120
+
+    second = Browser(app.test_client())
+    page = second.get(f"/book/{SLUG}").data.decode()
+    assert f'value="{later(90)}"' not in page and f'value="{later(120)}"' in page
+    assert b"no longer free" in book(second, later(60), [svcs[0]], types[0]).data
+    assert book(second, later(120), [svcs[0]], types[0]).status_code == 302
+
+
 def test_today_bookings_are_on_the_board(owner, db):
     from app import bookings
     tid = tenant_id(db)
     with db:
-        bookings.create(db, tid, slot_at=ts(), name="Lerato", phone="27831112222", plate="", note="",
+        bookings.create(db, tid, slot_at=ts(), minutes=30, name="Lerato", phone="27831112222", plate="", note="",
                         car_type_id=ids(db, "car_types", tid)[0], service_ids=[ids(db, "services", tid)[0]],
                         price_cents=7000)
     board = owner.get("/app/").data
@@ -535,6 +603,62 @@ def test_full_and_past_times_cannot_be_booked(app, owner, db):
     assert b"no longer free" in book(second, "2000-01-01 09:00", [svcs[0]], types[0]).data
     assert b"no longer free" in book(second, "garbage", [svcs[0]], types[0]).data
     assert db.execute("SELECT COUNT(*) FROM bookings").fetchone()[0] == 1
+
+
+def test_customer_cancels_their_booking(app, owner, db):
+    tid = tenant_id(db)
+    open_all_week(owner, capacity=1)
+    types, svcs = ids(db, "car_types", tid), ids(db, "services", tid)
+    customer = Browser(app.test_client())
+    slot = first_slot(customer.get(f"/book/{SLUG}").data)
+    page_url = book(customer, slot, [svcs[0]], types[0]).location
+    code = page_url.rsplit("/", 1)[-1]
+    assert b"Cancel booking" in customer.get(page_url).data
+    customer.post(f"/book/{SLUG}/{code}/cancel")
+    b = db.execute("SELECT * FROM bookings").fetchone()
+    assert (b["status"], b["cancelled_by"]) == ("cancelled", "customer")
+    page = customer.get(page_url).data
+    assert b"You cancelled this booking" in page and b"Cancel booking" not in page
+    assert b"I%27ve%20cancelled%20my%20booking" in page
+    assert b"Customer cancelled" in owner.get("/app/bookings").data
+    assert f'value="{slot}"'.encode() in Browser(app.test_client()).get(f"/book/{SLUG}").data  # the time is free again
+
+    book(customer, slot, [svcs[0]], types[0])
+    with db:  # the time has passed: too late to cancel online
+        db.execute("UPDATE bookings SET slot_at = '2000-01-01 09:00:00' WHERE status = 'new'")
+    code = db.execute("SELECT code FROM bookings WHERE status = 'new'").fetchone()[0]
+    assert b"Cancel booking" not in customer.get(f"/book/{SLUG}/{code}").data
+    customer.post(f"/book/{SLUG}/{code}/cancel")
+    assert db.execute("SELECT status FROM bookings WHERE code = ?", (code,)).fetchone()[0] == "new"
+    assert customer.post(f"/book/{SLUG}/nope/cancel").status_code == 404
+
+
+def test_owner_cancel_tells_the_customer(app, owner, db):
+    tid = tenant_id(db)
+    open_all_week(owner)
+    types, svcs = ids(db, "car_types", tid), ids(db, "services", tid)
+    customer = Browser(app.test_client())
+    page_url = book(customer, first_slot(customer.get(f"/book/{SLUG}").data), [svcs[0]], types[0]).location
+    bid = db.execute("SELECT id FROM bookings").fetchone()[0]
+    listed = owner.get("/app/bookings").data.decode()
+    assert "https://wa.me/27832223333?text=Hi%20Thandi%2C%20sorry" in listed
+    assert f'data-mark="/app/booking/{bid}/cancel"' in listed and "data-ask=" in listed
+    owner.post(f"/app/booking/{bid}/cancel", headers={"X-Requested-With": "fetch"})
+    assert db.execute("SELECT status, cancelled_by FROM bookings").fetchone()[:] == ("cancelled", "owner")
+    assert b"we had to cancel" in customer.get(page_url).data
+
+
+def test_arrived_keeps_the_booked_price(app, owner, db):
+    tid = tenant_id(db)
+    open_all_week(owner)
+    types, svcs = ids(db, "car_types", tid), ids(db, "services", tid)
+    customer = Browser(app.test_client())
+    book(customer, first_slot(customer.get(f"/book/{SLUG}").data), [svcs[1]], types[1])
+    bid = db.execute("SELECT id FROM bookings").fetchone()[0]
+    with db:
+        db.execute("UPDATE prices SET price_cents = 99900")
+    page = owner.get(f"/app/new?booking={bid}").data.decode()
+    assert 'name="price" value="130"' in page and f'data-booking="{bid}"' in page
 
 
 def test_booking_form_errors(app, owner, db):
@@ -694,3 +818,24 @@ def test_scanned_disc_fills_the_new_car_form(owner, db):
 def test_landing_has_no_load_shedding_promise(client):
     page = client.get("/").data.lower()
     assert b"load shedding" not in page and b"in the cloud" not in page and b"licence disc" in page
+
+
+def test_old_database_drops_washer_pay(tmp_path):
+    import sqlite3
+    from app.db import init_db
+    path = str(tmp_path / "old.db")
+    conn = sqlite3.connect(path)
+    conn.executescript("""
+        CREATE TABLE washers (id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, name TEXT NOT NULL,
+            pay_type TEXT NOT NULL DEFAULT 'percent' CHECK (pay_type IN ('percent', 'fixed')),
+            pay_value INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL);
+        CREATE TABLE visit_washers (visit_id INTEGER NOT NULL, washer_id INTEGER NOT NULL,
+            pay_type TEXT NOT NULL, pay_value INTEGER NOT NULL, PRIMARY KEY (visit_id, washer_id));
+        INSERT INTO visit_washers VALUES (1, 1, 'fixed', 2500);
+    """)
+    conn.close()
+    init_db(path)
+    conn = sqlite3.connect(path)
+    assert [r[1] for r in conn.execute("PRAGMA table_info(visit_washers)")] == ["visit_id", "washer_id"]
+    assert "pay_type" not in [r[1] for r in conn.execute("PRAGMA table_info(washers)")]
+    assert conn.execute("SELECT * FROM visit_washers").fetchall() == [(1, 1)]

@@ -3,32 +3,18 @@
 {% block page_title %}Staff{% endblock %}
 {% block top_left %}<a class="topbar-back" href="{{ url_for('owner.settings') }}">{{ icon('back') }} Staff</a>{% endblock %}
 {% block content %}
-<p class="muted small">Washers don't need phones or logins — you pick who's washing when a car starts. Pay is used for the earnings in Reports.</p>
+<p class="muted small">Washers don't need phones or logins — you pick who's washing when a car starts. Reports show who's fastest.</p>
 <form method="post" class="stack">
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
   {% for w in washers %}
   <section class="card staff-row {{ 'inactive' if not w.active }}">
     <input name="w{{ w.id }}_name" value="{{ w.name }}" maxlength="30" class="strong" aria-label="Name">
     <label class="toggle small"><input type="checkbox" name="w{{ w.id }}_active" value="1" {{ 'checked' if w.active }}><span>Working here</span></label>
-    <div class="pay">
-      <select name="w{{ w.id }}_pay_type" aria-label="Pay type">
-        <option value="percent" {{ 'selected' if w.pay_type == 'percent' }}>% of price</option>
-        <option value="fixed" {{ 'selected' if w.pay_type == 'fixed' }}>R per car</option>
-      </select>
-      <input name="w{{ w.id }}_pay_value" value="{{ w.pay_value if w.pay_type == 'percent' else w.pay_value|amount }}" inputmode="decimal" aria-label="Pay amount">
-    </div>
   </section>
   {% endfor %}
 
-  <section class="card staff-row">
+  <section class="card">
     <input name="new_name" placeholder="+ New washer's name" maxlength="30" class="strong" aria-label="New washer's name">
-    <div class="pay">
-      <select name="new_pay_type" aria-label="Pay type">
-        <option value="percent">% of price</option>
-        <option value="fixed">R per car</option>
-      </select>
-      <input name="new_pay_value" value="30" inputmode="decimal" aria-label="Pay amount">
-    </div>
   </section>
 
   <button class="btn primary big wide">Save staff</button>

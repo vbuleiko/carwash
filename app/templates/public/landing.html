@@ -72,7 +72,7 @@
       <p class="lead">Customers pick their car, the services, a day and a time — on any phone, no app needed. The booking lands on your board, and you confirm it on WhatsApp in one tap.</p>
       <ul class="ticks">
         <li>{{ icon('check') }} Your prices, your opening hours</li>
-        <li>{{ icon('check') }} No double bookings — you set how many cars fit at once</li>
+        <li>{{ icon('check') }} No double bookings — you set how long each service takes and how many cars fit at once</li>
         <li>{{ icon('check') }} Share the link on WhatsApp, Facebook and Google Maps</li>
       </ul>
       <form method="post" action="{{ url_for('public.demo') }}">
@@ -106,7 +106,7 @@
     </div>
     <div class="feature">
       <h3>Know who's fastest</h3>
-      <p>Wash time per washer, compared on the same service and car type — plus their earnings, worked out automatically.</p>
+      <p>Wash time per washer, compared on the same service and car type.</p>
     </div>
     <div class="feature">
       <h3>Loyalty without cards</h3>
@@ -136,7 +136,7 @@
         <li>{{ icon('check') }} WhatsApp messages from your own number — no per-message fees</li>
         <li>{{ icon('check') }} Licence disc scanner — no typing plates</li>
         <li>{{ icon('check') }} Online booking page for your customers</li>
-        <li>{{ icon('check') }} Staff speed and pay, reports, loyalty</li>
+        <li>{{ icon('check') }} Staff speed, reports, loyalty</li>
         <li>{{ icon('check') }} Help on WhatsApp when you need it</li>
       </ul>
       <a class="btn primary big wide" href="{{ url_for('public.signup') }}">Start {{ config.TRIAL_DAYS }} days free</a>

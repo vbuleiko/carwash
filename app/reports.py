@@ -1,4 +1,4 @@
-"""Numbers for the owner: revenue, cars, washer speed and pay."""
+"""Numbers for the owner: revenue, cars, washer speed."""
 from collections import defaultdict
 from datetime import date, timedelta
 from statistics import mean
@@ -56,7 +56,7 @@ def build(db, tenant, tz, key: str) -> dict:
         if r["visit_id"] in visits:
             visits[r["visit_id"]]["services"].append(dict(r))
     for r in db.execute(
-        "SELECT vw.visit_id, vw.washer_id, vw.pay_type, vw.pay_value FROM visit_washers vw "
+        "SELECT vw.visit_id, vw.washer_id FROM visit_washers vw "
         f"WHERE vw.visit_id IN ({in_period})",
         args,
     ):
@@ -99,18 +99,13 @@ def _staff(db, tenant, visits, typical):
         "SELECT id, name, active FROM washers WHERE tenant_id = ? ORDER BY name", (tenant["id"],)
     ).fetchall()
     stats = {
-        r["id"]: {"name": r["name"], "active": r["active"], "cars": 0, "earned": 0.0, "minutes": [], "ratios": []}
+        r["id"]: {"name": r["name"], "active": r["active"], "cars": 0, "minutes": [], "ratios": []}
         for r in rows
     }
     for v in visits.values():
-        team = len(v["team"])
         for member in v["team"]:
             s = stats[member["washer_id"]]
             s["cars"] += 1
-            if member["pay_type"] == "percent":
-                s["earned"] += v["price_cents"] * member["pay_value"] / 100 / team
-            else:
-                s["earned"] += member["pay_value"] / team
             if v["minutes"] is not None:
                 s["minutes"].append(v["minutes"])
                 s["ratios"].append(v["minutes"] / typical[v["job"]])
@@ -123,7 +118,6 @@ def _staff(db, tenant, visits, typical):
         result.append({
             "name": s["name"],
             "cars": s["cars"],
-            "earned": round(s["earned"]),
             "avg_minutes": mean(s["minutes"]) if s["minutes"] else None,
             # negative = faster than the typical time for the same jobs
             "speed": round((mean(s["ratios"]) - 1) * 100) if enough else None,

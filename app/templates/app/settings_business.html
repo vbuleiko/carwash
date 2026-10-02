@@ -37,6 +37,7 @@
     <label class="field"><span>Ask for a review</span><textarea name="msg_review" rows="4" maxlength="600">{{ request.form.msg_review or t.msg_review }}</textarea></label>
     <p class="muted small">For bookings: <code>{name}</code> <code>{date}</code> <code>{time}</code> <code>{services}</code> <code>{price}</code> <code>{business}</code> <code>{address}</code></p>
     <label class="field"><span>Booking confirmed</span><textarea name="msg_booking" rows="4" maxlength="600">{{ request.form.msg_booking or t.msg_booking or msg_booking }}</textarea></label>
+    <label class="field"><span>Booking cancelled</span><textarea name="msg_cancel" rows="3" maxlength="600">{{ request.form.msg_cancel or t.msg_cancel or msg_cancel }}</textarea></label>
   </section>
 
   <section class="card stack">
