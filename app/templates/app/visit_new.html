@@ -3,9 +3,22 @@
 {% block page_title %}New car{% endblock %}
 {% block top_left %}<a class="topbar-back" href="{{ url_for('owner.board') }}">{{ icon('back') }} New car</a>{% endblock %}
 {% block content %}
-<form method="post" id="visit-form" class="stack card" data-mode="new" data-lookup="{{ url_for('owner.lookup') }}">
+<form method="post" id="visit-form" class="stack card" data-mode="new" data-lookup="{{ url_for('owner.lookup') }}" data-disc="{{ url_for('owner.disc_lookup') }}">
+  <button type="button" class="btn big wide scan-btn" id="scan-disc" hidden
+          data-decoder="{{ url_for('static', filename='vendor/barcode-detector.js') }}">{{ icon('scan') }} Scan licence disc</button>
   {% if booking %}<p class="booking-note">{{ icon('calendar') }} <span>Booked by <b>{{ booking.name }}</b> for {{ booking.slot_at|local }}{{ ' — check the plate' if not booking.plate }}</span></p>{% endif %}
   {% with autofocus=not booking or not booking.plate %}{% include "app/_visit_fields.html" %}{% endwith %}
   <button class="btn primary big wide">Add car</button>
 </form>
+
+<dialog id="scan-dialog" class="sheet scanner">
+  <div class="scan-view">
+    <video muted playsinline></video>
+    <i class="scan-frame" aria-hidden="true"></i>
+  </div>
+  <p class="scan-hint" id="scan-hint" role="status"></p>
+  <div class="row">
+    <button type="button" class="btn wide" data-close>Type it in instead</button>
+  </div>
+</dialog>
 {% endblock %}

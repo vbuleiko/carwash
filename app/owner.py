@@ -17,7 +17,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import bookings, queries, reports, seed, site, themes
+from . import bookings, disc, queries, reports, seed, site, themes
 from .db import get_db
 from .utils import (
     TIMEZONES,
@@ -228,6 +228,23 @@ def lookup():
         visits=visits,
         last_service_ids=last_services,
         loyalty=queries.loyalty(db, g.tenant, vehicle["id"]),
+    )
+
+
+@bp.get("/disc")
+def disc_lookup():
+    """A scanned licence disc -> plate, make and car type for the new car form."""
+    db = get_db()
+    found = disc.parse(request.args.get("code", "")[:2000])
+    if not found:
+        return jsonify(found=False)
+    known = queries.find_vehicle(db, _tid(), found["plate"])
+    car_types, _, _ = queries.price_list(db, _tid())
+    return jsonify(
+        found=True,
+        plate=known["plate"] if known else found["plate"],
+        make=found["make"],
+        car_type_id=disc.car_type(found["description"], car_types),
     )
 
 

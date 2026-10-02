@@ -301,4 +301,84 @@
   });
   plate.addEventListener("blur", lookup);
   if (plate.value.trim()) lookup();
+
+  // --- licence disc scanner ------------------------------------------------------
+  const scanBtn = document.getElementById("scan-disc");
+  const scanner = document.getElementById("scan-dialog");
+  if (!scanBtn || !navigator.mediaDevices?.getUserMedia) return;  // the camera needs https
+  scanBtn.hidden = false;
+  if (matchMedia("(pointer: coarse)").matches && document.activeElement === plate) plate.blur();
+  const hint = document.getElementById("scan-hint");
+  const video = scanner.querySelector("video");
+  let stream = null;
+  let decoder = null;
+
+  async function pdf417Reader() {
+    if ("BarcodeDetector" in window) {  // Android Chrome reads PDF417 by itself
+      try {
+        if ((await BarcodeDetector.getSupportedFormats()).includes("pdf417")) return new BarcodeDetector({ formats: ["pdf417"] });
+      } catch (_) { /* fall through to our own decoder */ }
+    }
+    const mod = await import(scanBtn.dataset.decoder);
+    return new mod.BarcodeDetector({ formats: ["pdf417"] });
+  }
+
+  function stopCamera() {
+    stream?.getTracks().forEach((t) => t.stop());
+    stream = null;
+    video.srcObject = null;
+  }
+  scanner.addEventListener("close", stopCamera);
+
+  function fillFromDisc(d) {
+    plate.value = d.plate;
+    if (d.make) form.querySelector("#make").value = d.make;
+    const type = d.car_type_id && form.querySelector('input[name="car_type_id"][value="' + d.car_type_id + '"]');
+    if (type) type.checked = true;
+    manual = false;
+    recalc();
+    lookup();  // a regular? fills the phone and last services
+  }
+
+  async function readDisc(raw) {
+    const r = await fetch(form.dataset.disc + "?code=" + encodeURIComponent(raw), { credentials: "same-origin" });
+    return r.ok ? r.json() : { found: false };
+  }
+
+  scanBtn.addEventListener("click", async () => {
+    hint.textContent = "Point the camera at the barcode on the licence disc.";
+    scanner.showModal();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      });
+      if (!scanner.open) return stopCamera();
+      video.srcObject = stream;
+      await video.play();
+      decoder = decoder || (await pdf417Reader());
+    } catch (e) {
+      stopCamera();
+      hint.textContent = e.name === "NotAllowedError"
+        ? "The camera is blocked. Allow it for this site, or type the plate."
+        : "The scanner couldn't start on this phone. Type the plate instead.";
+      return;
+    }
+    let tried = "";
+    while (stream) {
+      const codes = await decoder.detect(video).catch(() => []);
+      const raw = codes.map((c) => c.rawValue).find((v) => v && v.includes("%"));
+      if (raw && raw !== tried) {
+        tried = raw;
+        const d = await readDisc(raw).catch(() => ({ found: false }));
+        if (d.found && stream) {
+          navigator.vibrate?.(60);
+          scanner.close();
+          fillFromDisc(d);
+          return;
+        }
+      }
+      if (codes.length) hint.textContent = raw ? "Couldn't read this disc. Type the plate instead." : "That barcode isn't a licence disc.";
+      await new Promise((r) => setTimeout(r, 120));
+    }
+  });
 })();

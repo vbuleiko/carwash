@@ -610,3 +610,45 @@ def test_site_mode_serves_one_car_wash(tmp_path):
     assert visitor.get("/signup").status_code == 404
     assert visitor.post("/demo").status_code == 404
     assert b"Shine Bros" in visitor.get("/login").data
+
+
+# --- licence disc scanner -------------------------------------------------------
+
+DISC = ("%MVL1CC09%0154%4024T011%1%40240119RMPX%CA123456%BYJ091C%Hatch back / Luikrug%TOYOTA%COROLLA%"
+        "White / Wit%AHTFZ29G309123456%2ZZ1234567%2027-08-31%")
+
+
+def test_licence_disc_parsing():
+    from app import disc
+    assert disc.parse(DISC) == {"plate": "CA 123-456", "make": "Toyota Corolla", "description": "Hatch back / Luikrug"}
+    bakkie = DISC.replace("CA123456", "CX99XXGP").replace("Hatch back / Luikrug", "Light delivery vehicle / Bakkie")
+    found = disc.parse(bakkie.replace("TOYOTA%COROLLA", "MERCEDES-BENZ%X250D"))
+    assert found["plate"] == "CX 99 XX GP" and found["make"] == "Mercedes-Benz X250D"
+    assert [disc.pretty_plate(p) for p in ("CX99XXGP", "ABC123L", "JOHN1GP", "CA 1")] == [
+        "CX 99 XX GP", "ABC 123 L", "JOHN 1 GP", "CA 1"]
+    assert disc.parse("VW%POLO VIVO") is None and disc.parse("") is None and disc.parse(None) is None
+    assert disc.parse(DISC.replace("TOYOTA%COROLLA", "VOLKSWAGEN%POLO VIVO GTI"))["make"] == "Volkswagen Polo Vivo GTI"
+    types = [{"id": 1, "name": "Hatch / Sedan"}, {"id": 2, "name": "SUV"}, {"id": 3, "name": "Bakkie"},
+             {"id": 4, "name": "Minibus / Van"}]
+    for description, expected in [("Hatch back / Luikrug", 1), ("Sedan (closed top) / Sedan", 1),
+                                  ("Station wagon / Stasiewa", 2), ("Light delivery vehicle / Bakkie", 3),
+                                  ("Panel van / Paneelwa", 4), ("Minibus / Minibus", 4), ("Motorcycle / Motorfiets", None)]:
+        assert disc.car_type(description, types) == expected, description
+    assert disc.car_type("Station wagon / Stasiewa", types[:1]) is None
+
+
+def test_scanned_disc_fills_the_new_car_form(owner, db):
+    tid = tenant_id(db)
+    page = owner.get("/app/new").data
+    assert b'id="scan-disc"' in page and b"vendor/barcode-detector.js" in page
+    d = owner.get("/app/disc", query_string={"code": DISC}).json
+    assert d == {"found": True, "plate": "CA 123-456", "make": "Toyota Corolla",
+                 "car_type_id": ids(db, "car_types", tid)[0]}
+    add_car(owner, db, plate="ca 123 456")  # a regular, written his own way
+    assert owner.get("/app/disc", query_string={"code": DISC}).json["plate"] == "CA 123 456"
+    assert owner.get("/app/disc?code=not-a-disc").json == {"found": False}
+
+
+def test_landing_has_no_load_shedding_promise(client):
+    page = client.get("/").data.lower()
+    assert b"load shedding" not in page and b"in the cloud" not in page and b"licence disc" in page

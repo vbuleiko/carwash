@@ -9,7 +9,7 @@ from pathlib import Path
 from flask import Flask, g, render_template
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from . import admin, bookings, db, owner, public, seed, site, themes
+from . import admin, bookings, db, disc, owner, public, seed, site, themes
 from .security import check_csrf, csrf_token
 from .utils import fmt_minutes, format_phone, money, money_input, to_local, wa_link
 
@@ -75,7 +75,7 @@ def create_app(test_config: dict | None = None) -> Flask:
     app.register_blueprint(site.bp)
 
     app.before_request(check_csrf)
-    app.jinja_env.globals.update(csrf_token=csrf_token, wa_link=wa_link)
+    app.jinja_env.globals.update(csrf_token=csrf_token, wa_link=wa_link, car_makes=disc.MAKES)
     app.jinja_env.filters.update(money=money, amount=money_input, phone=format_phone, minutes=fmt_minutes)
 
     @app.template_filter("local")
@@ -100,7 +100,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         resp.headers.setdefault(
             "Content-Security-Policy",
             "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
-            "script-src 'self'; frame-ancestors 'none'; base-uri 'self'",
+            "script-src 'self' 'wasm-unsafe-eval'; frame-ancestors 'none'; base-uri 'self'",  # wasm: disc scanner
         )
         return resp
 
