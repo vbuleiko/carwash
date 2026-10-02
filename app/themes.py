@@ -28,7 +28,7 @@ def picked() -> str:
 
 
 def current() -> str:
-    tenant = g.get("tenant")
+    tenant = g.get("tenant") or g.get("site")  # the owner's car wash, or the one whose page this is
     if tenant is not None:
         return tenant["theme"] if tenant["theme"] in THEMES else default()
     return picked() or default()

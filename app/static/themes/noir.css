@@ -79,3 +79,65 @@ dialog.sheet { border-radius: 2px; background: var(--card); border-color: var(--
 .visit-top { display: block; }
 .visit-top .since { display: block; margin: 2px 0 4px; }
 .logo { font-stretch: 112%; letter-spacing: .04em; }
+
+/* bookings */
+.lane-booked .visit, .lane-booked .visit.card { border-left-color: var(--accent); }
+.booking-time, .booking-name { font-stretch: 125%; }
+.booking-time { font-weight: 500; letter-spacing: .08em; }
+.booking-name { font-weight: 500; text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; }
+.share-icon { background: transparent; border: 1px solid var(--edge); border-radius: 0; }
+.booking-note { background: transparent; border-left: 1px solid var(--accent); border-radius: 0; }
+.owner-bar { background: transparent; border-bottom-color: var(--line); font-size: .78rem; }
+
+/* booking page: an atelier's appointment card */
+.book { max-width: 600px; }
+@media (min-width: 960px) { .book-split { max-width: 1100px; } }
+.book-hero { padding: 54px 0 32px; text-align: center; }
+.book-hero::before { content: ""; display: block; width: 36px; height: 1px; margin: 0 auto 24px; background: var(--accent); }
+.book-hero h1 { font-size: clamp(1.7rem, 8vw, 2.6rem); font-weight: 400; letter-spacing: .06em; line-height: 1.15; }
+.book-meta { align-items: center; font-size: .66rem; font-stretch: 125%; font-weight: 500; text-transform: uppercase; letter-spacing: .18em; }
+.hours ul { margin-inline: auto; background: transparent; border-color: var(--edge); border-radius: 0; text-align: left; text-transform: none; letter-spacing: .02em; font-size: .85rem; font-stretch: 100%; }
+.open-dot { width: 6px; height: 6px; }
+.open-dot.is-open { background: var(--accent); box-shadow: none; }
+.step { padding-top: 38px; }
+.step h2 { gap: 14px; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .26em; color: var(--muted); }
+.step h2::after { content: ""; order: 1; flex: 1; height: 1px; background: var(--line); }
+.step h2 em { margin-left: 0; text-transform: none; letter-spacing: .02em; font-stretch: 100%; font-size: .78rem; }
+.book-meta > span .icon { display: none; }
+.step-n { display: inline-flex; width: auto; height: auto; background: transparent; color: var(--accent); font-size: .7rem; font-weight: 500; letter-spacing: .1em; }
+.step-n::before { content: "0"; }
+.svc-list { gap: 0; border-top: 1px solid var(--line); }
+.svc-box { min-height: 66px; padding: 14px 2px; background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+.svc-tick { width: 16px; height: 16px; border-width: 1px; border-color: var(--edge); border-radius: 0; }
+.svc-tick .icon { width: 11px; height: 11px; stroke-width: 2.5; }
+.svc-name { font-weight: 500; letter-spacing: .02em; }
+.svc-price { font-weight: 400; letter-spacing: .06em; font-stretch: 112%; }
+.svc input:checked + .svc-box { background: transparent; border-color: var(--line); box-shadow: none; }
+.svc input:checked + .svc-box .svc-name, .svc input:checked + .svc-box .svc-price { color: var(--accent); }
+.day-opt span { width: 60px; height: 86px; background: transparent; border-color: var(--line); border-radius: 0; }
+.day-opt b { font-size: 1.75rem; font-weight: 300; }
+.day-opt small { font-size: .56rem; font-stretch: 125%; font-weight: 600; letter-spacing: .2em; }
+.day-opt input:checked + span { background: transparent; border-color: var(--accent); color: var(--accent); }
+.day-opt input:checked + span small { opacity: 1; }
+.times-label { font-size: .58rem; font-stretch: 125%; font-weight: 600; letter-spacing: .28em; }
+.time-opt span { background: transparent; border-color: var(--line); border-radius: 0; font-weight: 400; letter-spacing: .06em; }
+.time-opt small { color: var(--accent); text-transform: uppercase; letter-spacing: .14em; font-size: .52rem; }
+.book-bar { background: rgb(11 10 9 / 94%); border-top-color: var(--line); }
+.book-sum b { font-size: 1.5rem; font-weight: 400; letter-spacing: .03em; }
+.book-sum span { font-size: .62rem; font-stretch: 125%; text-transform: uppercase; letter-spacing: .16em; margin-top: 2px; }
+.booked-icon { background: transparent; border: 1px solid var(--accent); color: var(--accent); box-shadow: none; }
+.booked-icon .icon { stroke-width: 1.3; }
+.booked h1 { font-weight: 400; }
+.receipt { padding: 0; background: transparent; border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.receipt dt { font-size: .58rem; font-stretch: 125%; font-weight: 600; text-transform: uppercase; letter-spacing: .22em; }
+.receipt dd { font-weight: 500; }
+.receipt-total dd { font-weight: 400; color: var(--accent); }
+
+.promo h2 { font-weight: 400; text-transform: uppercase; letter-spacing: .04em; font-stretch: 125%; }
+.mini-svc { background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 7px 2px; }
+.mini-svc.on span { color: var(--accent); }
+.mini-svc i { border-width: 1px; border-radius: 0; }
+.mini-days span, .mini-times span { background: transparent; border-radius: 0; }
+.mini-days .on { background: transparent; color: var(--accent); }
+.mini-title { font-weight: 400; text-transform: uppercase; letter-spacing: .1em; font-stretch: 125%; font-size: .9rem; }
+.mini-btn.primary { background: transparent; color: var(--accent); }

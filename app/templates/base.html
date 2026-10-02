@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ config.ASSET_VERSION }}">
   {% if theme != 'classic' %}<link rel="stylesheet" href="{{ url_for('static', filename='themes/' ~ theme ~ '.css') }}?v={{ config.ASSET_VERSION }}">{% endif %}
   <script src="{{ url_for('static', filename='app.js') }}?v={{ config.ASSET_VERSION }}" defer></script>
+  {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}" {% block body_attrs %}{% endblock %}>
 {% block body %}{% endblock %}

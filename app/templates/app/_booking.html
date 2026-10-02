@@ -1,0 +1,28 @@
+{# a booking on the board or the Bookings page; needs: b, and on the Bookings page `listed` #}
+{% from "_macros.html" import icon %}
+<article class="card visit booking booking-{{ b.status }}">
+  <div class="visit-main">
+    <div class="visit-top">
+      <span class="booking-time">{{ b.slot_at|local }}</span>
+      <b class="booking-name">{{ b.name }}</b>
+      {% if listed %}<span class="pill pill-{{ b.status }}">{{ statuses[b.status] }}</span>{% endif %}
+    </div>
+    <div class="visit-meta">{{ b.services|join(', ') }} · <b>{{ b.price_cents|money }}</b></div>
+    <div class="visit-meta">{{ [b.car_type, b.plate]|select|join(' · ') }}{% if b.phone %} · <a href="{{ b.wa_chat }}" target="_blank" rel="noopener" data-preview data-msg="(opens a WhatsApp chat with {{ b.phone_display }})">{{ b.phone_display }}</a>{% endif %}</div>
+    {% if b.note %}<div class="visit-note">{{ b.note }}</div>{% endif %}
+  </div>
+  <div class="visit-actions">
+    {% if b.status == 'new' %}
+      <a class="btn wa" href="{{ b.wa_confirm }}" target="_blank" rel="noopener" data-mark="{{ url_for('owner.confirm_booking', bid=b.id) }}" data-msg="{{ b.msg_confirm }}">{{ icon('chat') }} Confirm</a>
+    {% endif %}
+    {% if b.status in ('new', 'confirmed') and (not listed or b.today) %}
+      <a class="btn {{ 'primary' if b.status == 'confirmed' }}" href="{{ url_for('owner.new_visit', booking=b.id) }}">{{ icon('check') }} Arrived</a>
+    {% endif %}
+    {% if listed and b.status in ('new', 'confirmed') %}
+      <form method="post" action="{{ url_for('owner.cancel_booking', bid=b.id) }}" data-confirm="Cancel {{ b.name }}'s booking?">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <button class="link small cancel-link">Cancel</button>
+      </form>
+    {% endif %}
+  </div>
+</article>

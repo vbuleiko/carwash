@@ -70,3 +70,52 @@ dialog.sheet { border-radius: 28px; border-color: var(--line); }
 .steps li, .feature { border: 0; }
 .price-card { border: 1px solid var(--accent); border-radius: 30px; }
 .mini-today span { border: 0; border-radius: 12px; }
+
+/* bookings */
+.lane-booked h2::before { background: var(--text); box-shadow: 0 0 12px rgb(238 240 243 / 60%); }
+.lane-booked .visit { background: linear-gradient(135deg, rgb(238 240 243 / 6%), transparent 45%), var(--card); }
+.booking-time { font-size: 1.3rem; letter-spacing: -.02em; }
+.share-icon { border-radius: 16px; }
+.booking-note { border-radius: 16px; }
+.owner-bar { background: var(--accent-soft); color: var(--accent); border-bottom: 0; }
+
+/* booking page: big soft shapes, lime on graphite */
+.book-hero { padding-top: 40px; border-bottom: 0; }
+.book-hero h1 { font-size: clamp(2.5rem, 12vw, 3.8rem); letter-spacing: -.05em; line-height: .98; }
+.book-meta { flex-direction: row; flex-wrap: wrap; gap: 8px; }
+.book-meta > span, .hours summary { min-height: 34px; padding: 5px 14px; background: var(--card); border-radius: 999px; font-size: .9rem; }
+.hours ul { border: 0; border-radius: 20px; }
+.step { padding-top: 32px; }
+.step h2 { font-size: 1.3rem; letter-spacing: -.02em; }
+.step-n { width: 30px; height: 30px; }
+.svc-list { gap: 10px; }
+.svc-box { min-height: 64px; padding: 14px 18px; border: 0; border-radius: 20px; }
+.svc-tick { border-radius: 50%; border-color: #3a3f46; }
+.svc input:checked + .svc-box { background: var(--accent); color: var(--accent-ink); box-shadow: 0 16px 36px -18px rgb(212 255 58 / 60%); }
+.svc input:checked + .svc-box .svc-tick { background: var(--accent-ink); border-color: var(--accent-ink); color: var(--accent); }
+.days { gap: 10px; }
+.day-opt span { width: 64px; height: 86px; border: 0; border-radius: 22px; }
+.day-opt b { font-size: 1.65rem; letter-spacing: -.03em; }
+.day-opt small { text-transform: none; letter-spacing: 0; font-size: .74rem; }
+.day-opt input:checked + span { box-shadow: 0 14px 30px -14px rgb(212 255 58 / 65%); }
+.times-label { text-transform: none; letter-spacing: 0; font-size: .85rem; font-weight: 600; }
+.time-opt span { border: 0; border-radius: 999px; }
+.book-bar {
+  bottom: calc(12px + env(safe-area-inset-bottom)); margin: 30px 0 0; padding: 8px 8px 8px 22px;
+  border: 1px solid var(--line); border-radius: 999px; background: rgb(21 23 26 / 94%);
+}
+.book-bar .btn { min-height: 52px; }
+.book-sum b { font-size: 1.45rem; letter-spacing: -.03em; }
+.booked-icon { box-shadow: 0 0 0 12px rgb(212 255 58 / 12%), 0 22px 54px -14px rgb(212 255 58 / 55%); }
+.booked h1 { letter-spacing: -.045em; }
+.receipt { padding: 6px 22px; border-radius: 26px; }
+.receipt-total dd { letter-spacing: -.03em; color: var(--accent); }
+
+.promo h2 { letter-spacing: -.045em; }
+.mini-svc { border: 0; border-radius: 12px; }
+.mini-svc.on { background: var(--accent); color: var(--accent-ink); }
+.mini-svc.on i { background: var(--accent-ink); border-color: var(--accent-ink); color: var(--accent); }
+.mini-svc i { border-radius: 50%; }
+.mini-days span, .mini-times span { border: 0; border-radius: 12px; }
+.mini-times span { border-radius: 999px; }
+.mini-bar { padding: 6px 6px 6px 12px; border: 1px solid var(--line); border-radius: 999px; }

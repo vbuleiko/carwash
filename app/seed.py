@@ -1,9 +1,9 @@
 """Default price list for new car washes, and generated data for demo sandboxes."""
 import random
 import secrets
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 
-from . import queries
+from . import bookings, queries
 from .utils import DEFAULT_TZ, local_today, now_utc, plate_key, ts, zone
 
 CAR_TYPES = ["Hatch / Sedan", "SUV", "Bakkie", "Minibus / Van"]
@@ -26,19 +26,20 @@ MSG_REVIEW = (
 
 
 def create_tenant(db, *, name, email=None, password_hash=None, phone="", city="",
-                  trial_days=30, is_demo=False, theme="") -> int:
+                  trial_days=30, is_demo=False, theme="", slug="") -> int:
     today = local_today(zone(DEFAULT_TZ))
     cur = db.execute(
-        "INSERT INTO tenants (name, email, password_hash, phone, city, msg_ready, msg_review, "
-        "loyalty_every, paid_until, is_demo, theme, session_key, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO tenants (name, email, password_hash, phone, city, msg_ready, msg_review, msg_booking, "
+        "loyalty_every, paid_until, is_demo, theme, session_key, slug, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
-            name, email, password_hash, phone, city, MSG_READY, MSG_REVIEW,
+            name, email, password_hash, phone, city, MSG_READY, MSG_REVIEW, bookings.MSG_BOOKING,
             6 if is_demo else 0,
             (today + timedelta(days=trial_days)).isoformat(),
             1 if is_demo else 0,
             theme,
             secrets.token_urlsafe(16),
+            slug or bookings.unique_slug(db, name),
             ts(),
         ),
     )
@@ -80,6 +81,8 @@ DEMO_CARS = [  # make, car type index
 # main service weights; minutes of work for one washer on a sedan
 MAIN_SERVICES = {"Wash & Go": (45, 20), "Wash & Vac": (35, 32), "Full Valet": (8, 95), "Engine Wash": (12, 25)}
 TYPE_FACTOR = [1.0, 1.15, 1.15, 1.45]
+DEMO_BOOKERS = ["Thandi M.", "Pieter van Wyk", "Ayesha Khan", "Lungile Ndlovu", "Jason Pillay", "Naledi S.",
+                "Johan Botha", "Precious Dube"]
 
 
 def _plate(rng: random.Random) -> str:
@@ -91,12 +94,20 @@ def _plate(rng: random.Random) -> str:
     return f"{prefix} {rng.randint(100, 999)}-{rng.randint(100, 999)}"
 
 
+def demo_slug(db) -> str:
+    while True:
+        slug = f"sunshine-{secrets.token_hex(3)}"
+        if not db.execute("SELECT 1 FROM tenants WHERE slug = ?", (slug,)).fetchone():
+            return slug
+
+
 def create_demo(db, now=None, theme="") -> int:
-    """A sandbox car wash with two weeks of history and a few cars on the board."""
-    tenant_id = create_tenant(db, name="Sunshine Car Wash (demo)", is_demo=True, theme=theme)
+    """A sandbox car wash with two weeks of history, a few cars on the board and some bookings."""
+    tenant_id = create_tenant(db, name="Sunshine Car Wash (demo)", is_demo=True, theme=theme,
+                              slug=demo_slug(db))
     db.execute(
-        "UPDATE tenants SET review_url = ?, city = ? WHERE id = ?",
-        ("https://g.page/r/your-car-wash/review", "Johannesburg", tenant_id),
+        "UPDATE tenants SET review_url = ?, city = ?, address = ? WHERE id = ?",
+        ("https://g.page/r/your-car-wash/review", "Johannesburg", "21 Main Road, Rosebank", tenant_id),
     )
     tenant = db.execute("SELECT * FROM tenants WHERE id = ?", (tenant_id,)).fetchone()
     rng = random.Random(tenant_id)
@@ -205,7 +216,30 @@ def create_demo(db, now=None, theme="") -> int:
             if status == "ready":
                 updates["ready_at"] = updates["notified_at"] = ts(now - timedelta(minutes=4))
             queries.apply_updates(db, visit_id, updates)
+    _demo_bookings(db, tenant_id, rng, now, vehicles, types, services, matrix)
     return tenant_id
+
+
+def _demo_bookings(db, tenant_id, rng, now, vehicles, types, services, matrix):
+    tenant = db.execute("SELECT * FROM tenants WHERE id = ?", (tenant_id,)).fetchone()
+    open_days = [d for d in bookings.days(db, tenant, now) if d["slots"]]
+    picks = []
+    for day, count in zip(open_days, (2, 3, 2, 1)):
+        picks += sorted(rng.sample(day["slots"], min(count, len(day["slots"]))), key=lambda s: s["time"])
+    tz = zone(tenant["timezone"])
+    for i, (slot, name) in enumerate(zip(picks, DEMO_BOOKERS)):
+        vehicle_id, type_index, _ = vehicles[i] if i % 2 == 0 else rng.choice(vehicles[20:] or vehicles)
+        car = db.execute("SELECT plate, phone FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
+        main = rng.choice(["Wash & Vac", "Wash & Vac", "Full Valet", "Wash & Go"])
+        chosen = [services[main]] + ([services["Tyre Shine"]] if rng.random() < 0.4 else [])
+        type_id = types[type_index]
+        local = datetime.combine(date.fromisoformat(slot["value"][:10]), time.fromisoformat(slot["time"]), tzinfo=tz)
+        code = bookings.create(
+            db, tenant_id, slot_at=ts(local), name=name, phone=car["phone"], plate=car["plate"] if i % 3 else "",
+            car_type_id=type_id, service_ids=chosen, price_cents=sum(matrix[s][type_id] for s in chosen), note="",
+        )
+        if i % 3 != 2:
+            db.execute("UPDATE bookings SET status = 'confirmed', confirmed_at = ? WHERE code = ?", (ts(now), code))
 
 
 def demo_cutoff(max_age_hours=DEMO_HOURS) -> str:

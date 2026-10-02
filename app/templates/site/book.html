@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, flashes, preview_dialog %}
+{% block title %}Book a wash · {{ t.name }}{% endblock %}
+{% block description %}Book your car wash at {{ t.name }} online: pick the services, the day and the time.{% endblock %}
+{% block head %}{% if t.is_demo %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% block body_class %}site book-page{% endblock %}
+{% block body_attrs %}data-demo="{{ 1 if t.is_demo else 0 }}"{% endblock %}
+{% block body %}
+{% include "site/_top.html" %}
+<main class="book book-split">
+  {% include "site/_hero.html" %}
+  {{ flashes() }}
+
+  {% if not is_open %}
+  <section class="card book-closed">
+    <h2>Online booking is closed for now</h2>
+    <p class="muted">{{ 'Message us on WhatsApp and we’ll find you a time.' if wa else 'Please come by — we’ll fit you in.' }}</p>
+  </section>
+  {% else %}
+  <form method="post" action="{{ url_for('site.book', slug=t.slug) }}" id="book-form" class="book-form" data-slug="{{ t.slug }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+
+    <section class="step">
+      <h2><span class="step-n">1</span> Your car</h2>
+      <div class="chips">
+        {% for ct in car_types %}
+        <label class="chip"><input type="radio" name="car_type_id" value="{{ ct.id }}" {{ 'checked' if ct.id == car_type_id }}><span>{{ ct.name }}</span></label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="step">
+      <h2><span class="step-n">2</span> Services <em>pick one or more</em></h2>
+      <div class="svc-list">
+        {% for s in services %}
+        {% set p = matrix.get(s.id, {}).get(car_type_id) %}
+        <label class="svc">
+          <input type="checkbox" name="service_id" value="{{ s.id }}" {{ 'checked' if s.id in chosen }}>
+          <span class="svc-box">
+            <span class="svc-tick">{{ icon('check') }}</span>
+            <span class="svc-name">{{ s.name }}</span>
+            <span class="svc-price">{{ p|money if p is not none }}</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="step" id="when">
+      <h2><span class="step-n">3</span> Day &amp; time</h2>
+      {% if picked_day %}
+      <div class="days">
+        {% for d in days %}
+        <label class="day-opt">
+          <input type="radio" name="day" id="d{{ loop.index0 }}" value="{{ d.date }}" {{ 'checked' if d.date|string == picked_day }} {{ 'disabled' if not d.slots }}>
+          <span>
+            <small>{{ d.date.strftime('%a') }}</small>
+            <b>{{ d.date.day }}</b>
+            <small>{% if d.full %}Full{% elif not d.slots %}Closed{% elif loop.first %}Today{% else %}{{ d.date.strftime('%b') }}{% endif %}</small>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      {% for d in days %}{% if d.slots %}
+      <div class="times {{ 'on' if d.date|string == picked_day }}" id="t{{ loop.index0 }}" data-day="{{ d.date }}">
+        {% for part, slots in d.parts %}
+        <p class="times-label">{{ part }}</p>
+        <div class="time-grid">
+          {% for s in slots %}
+          <label class="time-opt">
+            <input type="radio" name="slot" value="{{ s.value }}" data-label="{{ d.name }}, {{ s.time }}" {{ 'checked' if s.value == form.slot }}>
+            <span>{{ s.time }}{% if s.left == 1 and t.slot_capacity > 1 %}<small>1 left</small>{% endif %}</span>
+          </label>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}{% endfor %}
+      {% else %}
+      <p class="empty">No free times in the next two weeks.{{ ' Message us on WhatsApp and we’ll fit you in.' if wa }}</p>
+      {% endif %}
+    </section>
+
+    <section class="step">
+      <h2><span class="step-n">4</span> Your details</h2>
+      <div class="stack">
+        <div class="grid2">
+          <label class="field"><span>Name</span><input name="name" value="{{ form.name or '' }}" required maxlength="60" autocomplete="name"></label>
+          <label class="field"><span>WhatsApp number</span><input name="phone" value="{{ form.phone or '' }}" type="tel" inputmode="tel" required placeholder="082 123 4567" autocomplete="tel"></label>
+        </div>
+        <div class="grid2">
+          <label class="field"><span>Number plate <em>optional</em></span><input name="plate" value="{{ form.plate or '' }}" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CA 123-456" class="upper"></label>
+          <label class="field"><span>Note <em>optional</em></span><input name="note" value="{{ form.note or '' }}" maxlength="200" placeholder="e.g. dog hair on the seats"></label>
+        </div>
+      </div>
+    </section>
+
+    <div class="book-bar">
+      <div class="book-sum">
+        <b id="sum-total">{{ total|money if chosen else '—' }}</b>
+        <span id="sum-when">Pick a time</span>
+      </div>
+      <button class="btn primary big">Book</button>
+    </div>
+    <p class="muted small center book-fine">We’ll confirm on WhatsApp. You pay at the car wash.</p>
+  </form>
+  <script type="application/json" id="price-data">{{ price_data|tojson }}</script>
+  {% endif %}
+</main>
+
+<footer class="site-footer">
+  <span>© {{ t.name }}</span>
+  <a href="{{ url_for('public.privacy') }}">Privacy</a>
+  {% if config.SITE_MODE %}<a href="{{ url_for('public.login') }}">Owner login</a>{% else %}<span>Bookings by <a href="{{ url_for('public.landing') }}">{{ config.APP_NAME }}</a></span>{% endif %}
+</footer>
+{% if t.is_demo %}{{ preview_dialog("On a real booking page this opens WhatsApp with the message ready.") }}{% endif %}
+{% endblock %}

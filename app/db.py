@@ -19,6 +19,12 @@ CREATE TABLE IF NOT EXISTS tenants (
     loyalty_every INTEGER NOT NULL DEFAULT 0,      -- 0 = off, 6 = every 6th wash free
     theme         TEXT NOT NULL DEFAULT '',        -- '' = the site default
     session_key   TEXT NOT NULL DEFAULT '',        -- in every login cookie; a new one logs out all devices
+    slug          TEXT NOT NULL DEFAULT '',        -- booking page address: /book/<slug>
+    address       TEXT NOT NULL DEFAULT '',
+    hours         TEXT NOT NULL DEFAULT '',        -- JSON, 7 days from Monday: ["08:00", "17:00"] or null; '' = default
+    slot_capacity INTEGER NOT NULL DEFAULT 2,      -- cars that can be booked for the same time
+    booking_on    INTEGER NOT NULL DEFAULT 1,
+    msg_booking   TEXT NOT NULL DEFAULT '',
     plan          TEXT NOT NULL DEFAULT 'trial',   -- trial | paid
     paid_until    TEXT NOT NULL,                   -- YYYY-MM-DD, inclusive
     is_demo       INTEGER NOT NULL DEFAULT 0,
@@ -120,6 +126,34 @@ CREATE INDEX IF NOT EXISTS visits_by_car_type ON visits (car_type_id);
 CREATE INDEX IF NOT EXISTS visit_services_by_service ON visit_services (service_id);
 CREATE INDEX IF NOT EXISTS visit_washers_by_washer ON visit_washers (washer_id);
 
+CREATE TABLE IF NOT EXISTS bookings (
+    id           INTEGER PRIMARY KEY,
+    tenant_id    INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    code         TEXT NOT NULL,                    -- in the customer's link to their booking
+    slot_at      TEXT NOT NULL,
+    name         TEXT NOT NULL,
+    phone        TEXT NOT NULL,
+    plate        TEXT NOT NULL DEFAULT '',
+    car_type_id  INTEGER REFERENCES car_types(id) ON DELETE SET NULL,
+    price_cents  INTEGER NOT NULL DEFAULT 0,
+    note         TEXT NOT NULL DEFAULT '',
+    status       TEXT NOT NULL DEFAULT 'new'
+                 CHECK (status IN ('new', 'confirmed', 'arrived', 'cancelled')),
+    visit_id     INTEGER REFERENCES visits(id) ON DELETE SET NULL,
+    created_at   TEXT NOT NULL,
+    confirmed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS bookings_by_tenant_slot ON bookings (tenant_id, slot_at);
+CREATE INDEX IF NOT EXISTS bookings_by_car_type ON bookings (car_type_id);
+CREATE INDEX IF NOT EXISTS bookings_by_visit ON bookings (visit_id);
+
+CREATE TABLE IF NOT EXISTS booking_services (
+    booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    PRIMARY KEY (booking_id, service_id)
+);
+CREATE INDEX IF NOT EXISTS booking_services_by_service ON booking_services (service_id);
+
 CREATE TABLE IF NOT EXISTS rate_hits (
     key TEXT NOT NULL,
     at  REAL NOT NULL
@@ -131,7 +165,17 @@ CREATE INDEX IF NOT EXISTS rate_hits_by_key ON rate_hits (key, at);
 ADDED_COLUMNS = [
     ("tenants", "theme", "TEXT NOT NULL DEFAULT ''"),
     ("tenants", "session_key", "TEXT NOT NULL DEFAULT ''"),
+    ("tenants", "slug", "TEXT NOT NULL DEFAULT ''"),
+    ("tenants", "address", "TEXT NOT NULL DEFAULT ''"),
+    ("tenants", "hours", "TEXT NOT NULL DEFAULT ''"),
+    ("tenants", "slot_capacity", "INTEGER NOT NULL DEFAULT 2"),
+    ("tenants", "booking_on", "INTEGER NOT NULL DEFAULT 1"),
+    ("tenants", "msg_booking", "TEXT NOT NULL DEFAULT ''"),
 ]
+# indexes on added columns: created after the ALTERs
+LATE_SCHEMA = """
+CREATE UNIQUE INDEX IF NOT EXISTS tenants_by_slug ON tenants (slug) WHERE slug != '';
+"""
 
 
 def connect(path: str) -> sqlite3.Connection:
@@ -161,6 +205,7 @@ def init_db(path: str):
     for table, column, decl in ADDED_COLUMNS:
         if column not in {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+    conn.executescript(LATE_SCHEMA)
     conn.commit()
     conn.close()
 

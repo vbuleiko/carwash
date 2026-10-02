@@ -20,6 +20,15 @@
 </section>
 {% endif %}
 
+{% if booked %}
+<section class="lane lane-booked">
+  <h2>Booked today <span class="count">{{ booked|length }}</span></h2>
+  {% for b in booked %}
+    {% include "app/_booking.html" %}
+  {% endfor %}
+</section>
+{% endif %}
+
 {% for key, title in [('queued', 'Waiting'), ('washing', 'Washing'), ('ready', 'Ready for collection')] %}
 <section class="lane lane-{{ key }}">
   <h2>{{ title }} <span class="count">{{ lanes[key]|length }}</span></h2>

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, preview_dialog %}
+{% block title %}{{ title }} · {{ t.name }}{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{% endblock %}
+{% block body_class %}site book-page{% endblock %}
+{% block body_attrs %}data-demo="{{ 1 if t.is_demo else 0 }}"{% endblock %}
+{% block body %}
+{% include "site/_top.html" %}
+<main class="book">
+  <section class="booked booked-{{ b.status }}">
+    <span class="booked-icon">{{ icon('x' if b.status == 'cancelled' else 'check') }}</span>
+    <p class="eyebrow">{{ t.name }}</p>
+    <h1>{{ title }}</h1>
+    <p class="lead">
+      {% if b.status == 'new' %}We’ll confirm your booking on WhatsApp soon.
+      {% elif b.status == 'confirmed' %}See you {{ when.day if when.day in ('Today', 'Tomorrow') else 'on ' ~ when.day }} at {{ when.time }}.
+      {% elif b.status == 'arrived' %}Your car is in good hands.
+      {% else %}Message us on WhatsApp to find another time.{% endif %}
+    </p>
+  </section>
+
+  <dl class="receipt card">
+    <div class="receipt-when"><dt>{{ icon('calendar') }} When</dt><dd>{{ when.day }}, {{ when.time }}</dd></div>
+    <div><dt>Services</dt><dd>{{ b.services|join(', ') }}</dd></div>
+    {% if b.car_type or b.plate %}<div><dt>Car</dt><dd>{{ [b.car_type, b.plate]|select|join(' · ') }}</dd></div>{% endif %}
+    <div><dt>Name</dt><dd>{{ b.name }}</dd></div>
+    <div class="receipt-total"><dt>Total</dt><dd>{{ b.price_cents|money }}</dd></div>
+  </dl>
+  {% if place %}<p class="muted center book-where">{{ icon('pin') }} {{ place }}</p>{% endif %}
+
+  <div class="cta cta-center">
+    {% if tell_link and b.status != 'arrived' %}<a class="btn wa big" href="{{ tell_link }}" target="_blank" rel="noopener" data-preview data-msg="{{ tell }}">{{ icon('chat') }} Message us</a>{% endif %}
+    <a class="btn big" href="{{ book_url }}">Book another car</a>
+  </div>
+  <p class="muted small center">Keep this page — it shows your booking’s status.</p>
+</main>
+{% if t.is_demo %}{{ preview_dialog("On a real booking page this opens WhatsApp with the message ready.") }}{% endif %}
+{% endblock %}

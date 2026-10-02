@@ -37,6 +37,7 @@
       · last car {{ t.last_car[:10] if t.last_car else 'never' }}
       · last seen {{ t.last_seen_at[:16] if t.last_seen_at else 'never' }} UTC
       · until {{ t.paid_until }}
+      · <a href="{{ url_for('site.page', slug=t.slug) }}" target="_blank" rel="noopener">booking page</a>
     </div>
     <div class="row wrap-row">
       <form method="post" action="{{ url_for('admin.extend', tid=t.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="months" value="1"><button class="btn">+1 month</button></form>

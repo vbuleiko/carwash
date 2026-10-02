@@ -70,3 +70,52 @@ dialog.sheet { border-radius: 6px; background: #121212; }
 .steps li::before { border-radius: 0; font-family: var(--display); transform: skewX(-10deg); }
 .price-card { border-radius: 6px; }
 .mini-today span { border-radius: 3px; }
+
+/* bookings */
+.booking-time { font-family: var(--display); font-size: 1.6rem; font-weight: 700; letter-spacing: .04em; line-height: 1.1; }
+.booking-name { font-family: var(--display); text-transform: uppercase; letter-spacing: .06em; font-size: 1.05rem; }
+.share-icon, .booking-note { border-radius: 3px; }
+.owner-bar { background: #111; border-bottom-color: #1c1c1c; }
+
+/* booking page: pit-lane board */
+.book-hero { padding-top: 44px; border-bottom: 0; }
+.book-hero::after { content: ""; display: block; height: 6px; margin-top: 26px; background: repeating-linear-gradient(-60deg, var(--accent) 0 8px, transparent 8px 16px); }
+.book-hero h1 { font-size: clamp(2.8rem, 13vw, 4.4rem); line-height: .9; letter-spacing: .01em; }
+.book-meta { font-family: var(--display); text-transform: uppercase; letter-spacing: .12em; font-size: .95rem; font-weight: 500; }
+.hours ul { border-radius: 3px; background: #111; text-transform: none; letter-spacing: .02em; font-family: "Barlow", sans-serif; font-size: .9rem; }
+.open-dot { border-radius: 1px; transform: skewX(-18deg); }
+.step h2 { font-size: 1.35rem; letter-spacing: .1em; }
+.step h2::after { content: ""; order: 1; flex: 1; height: 1px; background: var(--line); }
+.step h2 em { font-family: "Barlow", sans-serif; text-transform: none; letter-spacing: 0; margin-left: 0; }
+.step-n { width: 30px; height: 26px; border-radius: 0; transform: skewX(-14deg); font-family: var(--display); font-size: 1.05rem; }
+.svc-box { min-height: 62px; border-radius: 3px; background: linear-gradient(90deg, #171717, #101010); border-color: #222; border-left: 3px solid #2c2c2c; }
+.svc input:checked + .svc-box { background: linear-gradient(90deg, #2e1508, #131313 75%); border-color: #2a2a2a; border-left-color: var(--accent); box-shadow: none; }
+.svc-tick { border-radius: 1px; transform: skewX(-12deg); border-color: #3a3a3a; }
+.svc-name { font-family: var(--display); font-size: 1.2rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.svc-price { font-family: var(--display); font-size: 1.3rem; font-weight: 600; letter-spacing: .04em; }
+.day-opt span { width: 60px; height: 82px; border-radius: 3px; background: #121212; border-color: #242424; }
+.day-opt b { font-family: var(--display); font-size: 2.1rem; font-weight: 600; line-height: .95; }
+.day-opt small { font-family: var(--display); font-size: .74rem; letter-spacing: .16em; }
+.day-opt input:checked + span { box-shadow: 0 12px 28px -12px rgb(255 90 31 / 80%); }
+.times-label { font-family: var(--display); font-size: .82rem; letter-spacing: .22em; }
+.time-opt span { border-radius: 2px; background: #121212; border-color: #242424; font-family: var(--display); font-size: 1.25rem; letter-spacing: .06em; }
+.time-opt small { letter-spacing: .1em; text-transform: uppercase; }
+.book-bar { background: rgb(10 10 10 / 92%); border-top-color: #222; }
+.book-bar::before { content: ""; position: absolute; left: 0; top: -1px; width: 72px; height: 2px; background: var(--accent); }
+.book-sum b { font-family: var(--display); font-size: 2rem; font-weight: 600; line-height: 1; }
+.book-sum span { font-family: var(--display); font-size: .85rem; text-transform: uppercase; letter-spacing: .12em; margin-top: 3px; }
+.booked-icon { border-radius: 4px; transform: skewX(-8deg); box-shadow: 0 18px 44px -14px rgb(255 90 31 / 85%); }
+.booked h1 { font-size: clamp(2.6rem, 12vw, 3.8rem); line-height: .95; }
+.receipt { border-radius: 4px; border-left: 3px solid var(--accent); }
+.receipt dt { font-family: var(--display); font-size: .82rem; text-transform: uppercase; letter-spacing: .16em; }
+.receipt-when dd { font-family: var(--display); font-size: 1.4rem; text-transform: uppercase; letter-spacing: .06em; }
+.receipt-total dd { font-family: var(--display); font-size: 2.1rem; font-weight: 600; }
+
+.promo h2 { font-size: clamp(2.4rem, 8vw, 3.6rem); line-height: .95; }
+.mini-svc { background: linear-gradient(90deg, #171717, #111); border-left: 2px solid #2c2c2c; }
+.mini-svc.on { border-color: var(--line); border-left-color: var(--accent); }
+.mini-svc span, .mini-days b, .mini-times span, .mini-title, .mini-bar b { font-family: var(--display); letter-spacing: .05em; }
+.mini-svc span, .mini-title { text-transform: uppercase; }
+.mini-svc i { border-radius: 1px; transform: skewX(-12deg); }
+.mini-days b { font-size: 1.15rem; }
+.mini-bar b { font-size: 1.35rem; }

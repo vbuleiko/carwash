@@ -1,0 +1,16 @@
+{% from "_macros.html" import icon %}
+<header class="book-hero">
+  <h1>{{ t.name }}</h1>
+  <div class="book-meta">
+    {% if place %}<span>{{ icon('pin') }} {{ place }}</span>{% endif %}
+    <details class="hours">
+      <summary><i class="open-dot {{ 'is-open' if open_now }}"></i> {{ 'Open now' if open_now else 'Closed now' }} · Today {{ today_hours }}</summary>
+      <ul>
+        {% for name, text in week %}
+        <li class="{{ 'today' if loop.index0 == today_index }}"><span>{{ name }}</span><span>{{ text }}</span></li>
+        {% endfor %}
+      </ul>
+    </details>
+  </div>
+  {% if wa %}<a class="btn wa" href="{{ wa }}" target="_blank" rel="noopener" data-preview data-msg="(opens a WhatsApp chat with {{ t.name }})">{{ icon('chat') }} WhatsApp us</a>{% endif %}
+</header>

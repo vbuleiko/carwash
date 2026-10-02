@@ -1,9 +1,11 @@
 {% from "_macros.html" import logo %}
 <header class="site-nav">
-  <a class="logo" href="{{ url_for('public.landing') }}">{{ logo() }} {{ config.APP_NAME }}</a>
+  <a class="logo" href="{{ url_for('public.landing') }}">{{ logo() }} {{ g.site.name if config.SITE_MODE and g.site else config.APP_NAME }}</a>
   <nav>
     {% if session.tenant_id %}
       <a class="btn primary" href="{{ url_for('owner.board') }}">Open app</a>
+    {% elif config.SITE_MODE %}
+      {% if g.site %}<a class="btn" href="{{ url_for('public.landing') }}">Book a wash</a>{% endif %}
     {% else %}
       <a href="{{ url_for('public.login') }}">Log in</a>
       <a class="btn primary" href="{{ url_for('public.signup') }}">Start free trial</a>

@@ -25,6 +25,15 @@ Washbook заменяет листок: машину записали → наз
 | Оплата подписки | **Вручную**: 30 дней триала → оплата по EFT → продление в `/admin` |
 | Оформление | **5 тёмных тем**, светлой нет: Carbon (по умолчанию), Volt, Midnight, Noir, Classic (прежний дизайн). Владелец выбирает в Settings → Look, посетитель — на лендинге |
 
+### Онлайн-запись (решения 02.10.2026)
+Идея: показать хозяину мойки всё (лендинг, приложение, страницу записи). Если купит — на его домене и хостинге ставится **сайт его мойки** (страница записи в выбранной теме) и приложение.
+| Вопрос | Решение |
+|---|---|
+| Куда попадает запись | В приложение мойки: вкладка **Bookings** и полоса «Booked today» на доске. Подтверждение клиенту — кнопкой **Confirm** (wa.me, как Ready). «Arrived» открывает «New car», заполненную из записи |
+| Выбор времени | Часы работы по дням + **сколько машин на одно время** (Settings → Online booking). Шаг 30 мин, на 14 дней вперёд, не раньше чем через 30 мин. Занятые времена скрыты |
+| Страница | Шапка мойки (название, адрес, часы, WhatsApp) + форма: тип авто → услуги (несколько) → день и время → имя, WhatsApp, номер авто (необяз.), заметка. Без оплаты |
+| Сайт на домене клиента | `SITE_MODE=1`: на `/` страница записи, `/app` — приложение, первая регистрация создаёт мойку, потом `/signup` и демо — 404 |
+
 ### Исследование рынка (на 30.09.2026, для решений о цене)
 - Конкуренты в ЮАР:
   - **Autoclick** — R250/мес (R2 900/год) + R0.30 за машину за WhatsApp. Умеет почти всё то же: скан лицензионного диска, этапы, фото, лояльность.
@@ -48,6 +57,8 @@ app/__init__.py   create_app(): конфиг из env, ProxyFix, CSRF, CSP/за�
 app/db.py         схема SQLite (CREATE IF NOT EXISTS; новые колонки — в CREATE TABLE и в ADDED_COLUMNS, там ALTER для старых баз)
 app/owner.py      /app — доска, приём/редактирование визита, машины, отчёты, настройки
 app/public.py     /, /signup, /login, /logout, POST /demo, /privacy, /robots.txt, /healthz
+app/site.py       страница записи для клиентов: /book/<slug>, POST туда же, /book/<slug>/<code> — «запись принята»
+app/bookings.py   часы работы, свободные времена, записи, текст подтверждения, адрес страницы (slug)
 app/admin.py      /admin — пароль из ADMIN_PASSWORD (пусто = 404)
 app/queries.py    общие запросы: прайс, визиты, лояльность, тексты и ссылки WhatsApp, подписка
 app/reports.py    отчёты, скорость мойщиков, заработок
@@ -57,12 +68,15 @@ app/themes.py     список тем и выбор текущей: тема м�
 app/static/style.css         вся вёрстка + токены темы Classic + @font-face всех шрифтов
 app/static/themes/<name>.css  остальные темы: переопределяют токены и немного правил, грузятся после style.css
 app/static/fonts/            шрифты тем (свои файлы, без CDN)
+app/templates/site/          страница записи (book.html, done.html, _hero.html, _top.html — панель владельца с выбором темы)
 tests/            pytest (conftest.Browser сам подставляет CSRF-токен)
 deploy/           setup-vm.sh, update.sh, backup.sh
 ```
 
 ### Модель данных
 `tenants` (мойка) → `car_types`, `services`, `prices(service_id, car_type_id)`, `washers`, `vehicles` (уникальны по `tenant_id + plate_key`) → `visits` → `visit_services` и `visit_washers`.
+`tenants` → `bookings` (`slot_at` в UTC, `status`: `new → confirmed → arrived`, плюс `cancelled`; `visit_id` после «Arrived»; `code` — для ссылки клиента) → `booking_services`.
+Настройки записи в `tenants`: `slug` (уникальный, адрес `/book/<slug>`), `address`, `hours` (JSON на 7 дней с понедельника, `''` = по умолчанию), `slot_capacity`, `booking_on`, `msg_booking`.
 
 ### Соглашения (важно соблюдать)
 - **Каждый запрос фильтруется по `tenant_id`.** Для чужих id — 404. Есть тест `test_car_wash_cannot_see_another_car_wash`.
@@ -82,13 +96,16 @@ deploy/           setup-vm.sh, update.sh, backup.sh
 - Истёкшая подписка: данные видны, но `/app/new` не пускает.
 - Вёрстка mobile-first. После изменений UI проверять ширину 390px на **горизонтальный скролл** (`document.documentElement.scrollWidth`). Скрытые input'ы уже раз ломали ширину страницы.
 - Стиль кода: без лишних комментариев, короткие функции, код на английском.
+- Запись: свободное время считает только `bookings.days()` (сервер повторно проверяет его в `free_slot()` внутри `BEGIN IMMEDIATE`, чтобы двое не заняли последнее место). Место занимают `new`, `confirmed`, `arrived`. Запись закрыта, если `booking_on = 0`, мойка на паузе или подписка истекла.
+- Страница записи ставит `g.site` (тема, часовой пояс), не `g.tenant`. Тема страницы — тема мойки. Владелец (своя сессия) видит сверху панель с кружками тем: POST в `/app/settings/theme` с `next=/book/...`.
+- Дни на странице записи переключаются через CSS `:has(#dN:checked) #tN` (работает без JS), JS только пересчитывает цены и итог и запоминает имя/телефон в `localStorage`.
 - Темы: цвета только через токены (`--bg`, `--card`, `--accent`, `--blue` = «моется», `--wa` = «готово» и т. д.). `tenants.theme = ''` значит тема по умолчанию. Выбор посетителя на лендинге (cookie `theme`) копируется в новую мойку и демо. После правок UI смотреть экран **во всех 5 темах** на 390px (у тем разные шрифты, скругления и ширина текста).
 
 ## Команды
 ```bash
 python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
 ADMIN_PASSWORD=admin flask --app app run --debug   # локально, база в ./data
-pytest -q                                          # 29 тестов
+pytest -q                                          # 39 тестов
 ```
 Деплой (подробно в README.md):
 ```bash
@@ -96,7 +113,7 @@ bash deploy/setup-vm.sh && nano .env && sudo docker compose up -d --build
 bash deploy/update.sh   # обновление
 bash deploy/backup.sh   # бэкап SQLite в backups/
 ```
-Переменные окружения: `DOMAIN`, `SECRET_KEY`, `ADMIN_PASSWORD`, `SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`, `PRICE_MONTHLY`, `TRIAL_DAYS`, `APP_NAME`, `THEME`, `COOKIE_SECURE`, `DATA_DIR`, `BACKUP_BUCKET` (см. `.env.example`).
+Переменные окружения: `DOMAIN`, `SECRET_KEY`, `ADMIN_PASSWORD`, `SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`, `PRICE_MONTHLY`, `TRIAL_DAYS`, `APP_NAME`, `THEME`, `SITE_MODE`, `COOKIE_SECURE`, `DATA_DIR`, `BACKUP_BUCKET` (см. `.env.example`).
 
 ## Особенности облачной песочницы Claude Code
 - Системный `pip install flask` падает (конфликт debian-пакета blinker) → ставить в venv.
@@ -113,6 +130,11 @@ bash deploy/backup.sh   # бэкап SQLite в backups/
 - **Ещё не задеплоено.** Не проверены HTTPS на реальном домене и отправка WhatsApp с реального телефона. Стек docker compose + Caddy проверен по http.
 - `/privacy` — шаблон под POPIA, перед запуском показать юристу.
 - Стартовые цены в `seed.py` условные.
+
+## Состояние на 02.10.2026
+- В ветке `claude/busy-euler-wezo2c`: онлайн-запись (страница для клиентов во всех 5 темах, вкладка Bookings, настройки, режим `SITE_MODE`, блок на лендинге). Проверено в браузере на 390px и 1280px во всех темах, горизонтального скролла нет.
+- Не сделано сознательно: автоуведомление владельца о новой записи (нет платного API). Клиенту после записи предлагается кнопка «Message us» с готовым текстом.
+- Вопрос к пользователю: в `SITE_MODE` подписка работает как обычно (триал `TRIAL_DAYS`, потом запись закрывается до продления в `/admin`). Если сайт продан навсегда — ставить большой `TRIAL_DAYS` или продлевать в `/admin`.
 
 ## Roadmap (не делать без запроса)
 1. Автоотправка через WhatsApp Cloud API (платно, нужен одобренный шаблон).

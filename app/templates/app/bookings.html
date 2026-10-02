@@ -1,0 +1,34 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import icon %}
+{% block page_title %}Bookings{% endblock %}
+{% block content %}
+<section class="card share">
+  <div class="share-head">
+    <span class="share-icon">{{ icon('calendar') }}</span>
+    <div class="share-text">
+      <b>Your booking page</b>
+      <a class="small" href="{{ page_url }}" target="_blank" rel="noopener">{{ page_label }}</a>
+    </div>
+  </div>
+  {% if not can_book %}
+  <p class="flash flash-error">Customers can’t book right now. {% if g.sub.active %}<a href="{{ url_for('owner.settings_booking') }}">Turn online booking on</a>{% else %}Your subscription has ended.{% endif %}</p>
+  {% endif %}
+  <div class="row wrap-row share-actions">
+    <a class="btn" href="{{ page_url }}" target="_blank" rel="noopener">Open</a>
+    <a class="btn wa" href="{{ share }}" target="_blank" rel="noopener" data-preview data-msg="Book your car wash at {{ g.tenant.name }} online: {{ page_url }}">{{ icon('chat') }} Share</a>
+    <a class="btn ghost" href="{{ url_for('owner.settings_booking') }}">{{ icon('clock') }} Hours</a>
+  </div>
+</section>
+
+{% set ns = namespace(day='') %}
+{% for b in bookings %}
+  {% set day = b.slot_at|local('%Y-%m-%d') %}
+  {% if day != ns.day %}
+    <h2 class="day">{{ 'Today' if day == g.today.isoformat() else b.slot_at|local('%A, %d %B') }}</h2>
+    {% set ns.day = day %}
+  {% endif %}
+  {% with listed=True %}{% include "app/_booking.html" %}{% endwith %}
+{% else %}
+<p class="empty center">No bookings yet. Share your page on WhatsApp, Facebook or your Google profile — customers book in a minute.</p>
+{% endfor %}
+{% endblock %}

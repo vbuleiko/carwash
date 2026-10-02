@@ -106,6 +106,68 @@
     if (msg && !confirm(msg)) e.preventDefault();
   });
 
+  // --- customer booking page ----------------------------------------------------
+  const book = document.getElementById("book-form");
+  if (book) bookingForm(book);
+
+  function bookingForm(form) {
+    const data = JSON.parse(document.getElementById("price-data").textContent);
+    const total = document.getElementById("sum-total");
+    const sum = total.parentElement;
+    const when = document.getElementById("sum-when");
+    const key = "book:" + form.dataset.slug;
+    const remembered = ["name", "phone", "plate"];
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) || "{}");
+      remembered.forEach((n) => { if (!form.elements[n].value && saved[n]) form.elements[n].value = saved[n]; });
+    } catch (_) { /* private mode */ }
+
+    function update() {
+      const type = form.querySelector('input[name="car_type_id"]:checked')?.value;
+      let cents = 0, count = 0;
+      form.querySelectorAll('input[name="service_id"]').forEach((cb) => {
+        const p = (data.matrix[cb.value] || {})[type];
+        cb.parentElement.querySelector(".svc-price").textContent = p != null ? money(p) : "";
+        if (cb.checked) { cents += p || 0; count += 1; }
+      });
+      const first = form.querySelector('input[name="service_id"]');
+      if (first) first.setCustomValidity(count ? "" : "Pick at least one service.");
+      total.textContent = count ? money(cents) : "—";
+      const slot = form.querySelector('input[name="slot"]:checked');
+      when.textContent = slot ? slot.dataset.label : "Pick a time";
+      if (slot) sum.classList.remove("need");
+    }
+
+    function showDay(day) {
+      form.querySelectorAll(".times").forEach((el) => el.classList.toggle("on", el.dataset.day === day));
+      form.querySelectorAll('input[name="slot"]:checked').forEach((r) => { if (!r.value.startsWith(day)) r.checked = false; });
+    }
+
+    form.addEventListener("change", (e) => {
+      if (e.target.name === "day") showDay(e.target.value);
+      update();
+    });
+    form.addEventListener("submit", (e) => {
+      if (!form.querySelector('input[name="slot"]:checked')) {
+        e.preventDefault();
+        sum.classList.add("need");
+        when.textContent = "Pick a time first";
+        document.getElementById("when").scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      try {
+        localStorage.setItem(key, JSON.stringify(Object.fromEntries(remembered.map((n) => [n, form.elements[n].value.trim()]))));
+      } catch (_) { /* private mode */ }
+    });
+    const picked = form.querySelector(".day-opt input:checked")?.parentElement;
+    if (picked) {  // a day further on, picked before a form error, is scrolled into sight
+      const strip = picked.parentElement;
+      const hidden = picked.getBoundingClientRect().right - strip.getBoundingClientRect().right + 28;
+      if (hidden > 0) strip.scrollLeft += hidden;
+    }
+    update();
+  }
+
   // --- car form: prices and returning customers -------------------------------
   const form = document.getElementById("visit-form");
   if (!form) return;

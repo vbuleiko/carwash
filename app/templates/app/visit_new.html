@@ -4,7 +4,8 @@
 {% block top_left %}<a class="topbar-back" href="{{ url_for('owner.board') }}">{{ icon('back') }} New car</a>{% endblock %}
 {% block content %}
 <form method="post" id="visit-form" class="stack card" data-mode="new" data-lookup="{{ url_for('owner.lookup') }}">
-  {% with autofocus=True %}{% include "app/_visit_fields.html" %}{% endwith %}
+  {% if booking %}<p class="booking-note">{{ icon('calendar') }} <span>Booked by <b>{{ booking.name }}</b> for {{ booking.slot_at|local }}{{ ' — check the plate' if not booking.plate }}</span></p>{% endif %}
+  {% with autofocus=not booking or not booking.plate %}{% include "app/_visit_fields.html" %}{% endwith %}
   <button class="btn primary big wide">Add car</button>
 </form>
 {% endblock %}

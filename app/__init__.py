@@ -9,7 +9,7 @@ from pathlib import Path
 from flask import Flask, g, render_template
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from . import admin, db, owner, public, seed, themes
+from . import admin, bookings, db, owner, public, seed, site, themes
 from .security import check_csrf, csrf_token
 from .utils import fmt_minutes, format_phone, money, money_input, to_local, wa_link
 
@@ -45,6 +45,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         SUPPORT_EMAIL=os.environ.get("SUPPORT_EMAIL", ""),
         TRIAL_DAYS=int(os.environ.get("TRIAL_DAYS", "30")),
         THEME=os.environ.get("THEME", "carbon"),
+        SITE_MODE=os.environ.get("SITE_MODE", "0") == "1",  # one car wash's own site: its booking page on /
         RATELIMIT_ENABLED=True,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
@@ -66,10 +67,12 @@ def create_app(test_config: dict | None = None) -> Flask:
         conn = db.get_db()
         with conn:
             seed.cleanup_demos(conn)
+            bookings.fill_slugs(conn)
 
     app.register_blueprint(public.bp)
     app.register_blueprint(owner.bp)
     app.register_blueprint(admin.bp)
+    app.register_blueprint(site.bp)
 
     app.before_request(check_csrf)
     app.jinja_env.globals.update(csrf_token=csrf_token, wa_link=wa_link)

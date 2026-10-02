@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icon, flashes %}
+{% from "_macros.html" import icon, flashes, preview_dialog %}
 {% block title %}{% block page_title %}{% endblock %} · {{ g.tenant.name }}{% endblock %}
 {% block body_class %}app{% endblock %}
 {% block body_attrs %}data-demo="{{ 1 if g.tenant.is_demo else 0 }}"{% endblock %}
@@ -34,20 +34,11 @@
 <nav class="tabbar" aria-label="Main">
   {% set ep = request.endpoint or '' %}
   <a href="{{ url_for('owner.board') }}" class="{{ 'on' if ep in ('owner.board', 'owner.new_visit', 'owner.visit') }}">{{ icon('board') }}<span>Board</span></a>
+  <a href="{{ url_for('owner.booking_list') }}" class="{{ 'on' if ep == 'owner.booking_list' }}">{{ icon('calendar') }}<span>Bookings</span>{% if g.new_bookings %}<b class="tab-badge" aria-label="{{ g.new_bookings }} new">{{ g.new_bookings }}</b>{% endif %}</a>
   <a href="{{ url_for('owner.cars') }}" class="{{ 'on' if ep in ('owner.cars', 'owner.car') }}">{{ icon('car') }}<span>Cars</span></a>
   <a href="{{ url_for('owner.report') }}" class="{{ 'on' if ep == 'owner.report' }}">{{ icon('chart') }}<span>Reports</span></a>
   <a href="{{ url_for('owner.settings') }}" class="{{ 'on' if ep.startswith('owner.settings') }}">{{ icon('gear') }}<span>Settings</span></a>
 </nav>
 
-{% if g.sub.demo %}
-<dialog id="preview-dialog" class="sheet">
-  <h3>WhatsApp message</h3>
-  <p class="muted small">In your real account this opens WhatsApp with the message ready — you just tap Send.</p>
-  <div class="bubble" id="preview-text"></div>
-  <div class="row">
-    <button type="button" class="btn" data-close>Close</button>
-    <button type="button" class="btn primary" id="preview-ok">Done</button>
-  </div>
-</dialog>
-{% endif %}
+{% if g.sub.demo %}{{ preview_dialog("In your real account this opens WhatsApp with the message ready — you just tap Send.") }}{% endif %}
 {% endblock %}

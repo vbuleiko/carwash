@@ -5,8 +5,10 @@ import sqlite3
 from flask import (
     Blueprint,
     Response,
+    abort,
     current_app,
     flash,
+    g,
     redirect,
     render_template,
     request,
@@ -15,7 +17,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import queries, seed, themes
+from . import queries, seed, site, themes
 from .db import get_db
 from .security import client_ip, limiter
 from .utils import normalize_phone, phone_is_valid
@@ -36,13 +38,23 @@ def _start_session(tenant_id: int):
         session["csrf"] = csrf
 
 
+@bp.before_request
+def site_mode():
+    if current_app.config["SITE_MODE"]:
+        g.site = site.site_tenant()
+
+
 @bp.get("/")
 def landing():
+    if current_app.config["SITE_MODE"]:
+        return site.render_page(g.site) if g.site else redirect(url_for(".signup"))
     return render_template("public/landing.html")
 
 
 @bp.route("/signup", methods=["GET", "POST"])
 def signup():
+    if current_app.config["SITE_MODE"] and g.site:
+        abort(404)  # this installation already has its car wash
     form = {}
     if request.method == "POST":
         form = request.form
@@ -114,14 +126,23 @@ def logout():
 
 @bp.post("/demo")
 def demo():
+    if current_app.config["SITE_MODE"]:
+        abort(404)
     db = get_db()
+
+    def go(tenant_id):
+        if request.form.get("next") == "book":
+            slug = db.execute("SELECT slug FROM tenants WHERE id = ?", (tenant_id,)).fetchone()[0]
+            return redirect(url_for("site.page", slug=slug))
+        return redirect(url_for("owner.board"))
+
     current = session.get("tenant_id")
     if current and db.execute(
         "SELECT 1 FROM tenants WHERE id = ? AND is_demo = 1 AND session_key = ? AND session_key != '' "
         "AND created_at >= ?",
         (current, session.get("key", ""), seed.demo_cutoff()),
     ).fetchone():
-        return redirect(url_for("owner.board"))
+        return go(current)
     if not limiter.allow(f"demo:{client_ip()}", 10, 3600):
         flash("Too many demos from this network. Try again later.", "error")
         return redirect(url_for("public.landing"))
@@ -129,7 +150,7 @@ def demo():
         tenant_id = seed.create_demo(db, theme=themes.picked())
         seed.cleanup_demos(db)
     _start_session(tenant_id)
-    return redirect(url_for("owner.board"))
+    return go(tenant_id)
 
 
 @bp.post("/theme")

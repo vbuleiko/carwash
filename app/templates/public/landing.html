@@ -65,6 +65,40 @@
     </ol>
   </section>
 
+  <section class="promo" id="booking">
+    <div class="promo-text">
+      <p class="eyebrow">Online booking</p>
+      <h2>Your own booking page</h2>
+      <p class="lead">Customers pick their car, the services, a day and a time — on any phone, no app needed. The booking lands on your board, and you confirm it on WhatsApp in one tap.</p>
+      <ul class="ticks">
+        <li>{{ icon('check') }} Your prices, your opening hours</li>
+        <li>{{ icon('check') }} No double bookings — you set how many cars fit at once</li>
+        <li>{{ icon('check') }} Share the link on WhatsApp, Facebook and Google Maps</li>
+      </ul>
+      <form method="post" action="{{ url_for('public.demo') }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="book">
+        <button class="btn primary big">See a booking page</button>
+      </form>
+    </div>
+    <div class="hero-visual">
+      <div class="phone" aria-hidden="true">
+        <div class="phone-screen mini-book">
+          <b class="mini-title">Sunshine Car Wash</b>
+          <span class="mini-open"><i class="open-dot is-open"></i> Open now · 08:00–17:00</span>
+          <div class="mini-lane">Services</div>
+          <div class="mini-svc on"><i>{{ icon('check') }}</i><span>Wash &amp; Vac</span><b>R130</b></div>
+          <div class="mini-svc on"><i>{{ icon('check') }}</i><span>Tyre Shine</span><b>R25</b></div>
+          <div class="mini-svc"><i></i><span>Full Valet</span><b>R320</b></div>
+          <div class="mini-lane">Day &amp; time</div>
+          <div class="mini-days"><span><small>Fri</small><b>2</b></span><span class="on"><small>Sat</small><b>3</b></span><span><small>Sun</small><b>4</b></span><span><small>Mon</small><b>5</b></span><span><small>Tue</small><b>6</b></span></div>
+          <div class="mini-times"><span>08:30</span><span>09:00</span><span class="on">10:30</span><span>11:00</span></div>
+          <div class="mini-bar"><span><b>R155</b><small>Sat 3 Oct, 10:30</small></span><span class="mini-btn primary">Book</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="features">
     <div class="feature">
       <h3>Every rand accounted for</h3>
@@ -100,6 +134,7 @@
       <ul>
         <li>{{ icon('check') }} Unlimited cars and customers</li>
         <li>{{ icon('check') }} WhatsApp messages from your own number — no per-message fees</li>
+        <li>{{ icon('check') }} Online booking page for your customers</li>
         <li>{{ icon('check') }} Staff speed and pay, reports, loyalty</li>
         <li>{{ icon('check') }} Help on WhatsApp when you need it</li>
       </ul>
@@ -113,6 +148,7 @@
     <details><summary>My washers don't have smartphones.</summary><p>They don't need one. One phone at the wash is enough — you pick who's washing from a list.</p></details>
     <details><summary>What about load shedding?</summary><p>{{ config.APP_NAME }} runs in the cloud, so your records are safe even when the power goes. All you need is a charged phone with data.</p></details>
     <details><summary>Is my customers' data safe?</summary><p>Your data is only visible to you. We never sell it or message your customers ourselves. See our <a href="{{ url_for('public.privacy') }}">privacy policy</a>.</p></details>
+    <details><summary>Can the booking page be on my own website?</summary><p>Yes. We can put your booking page and app on your own web address, in the look you choose — just ask us on WhatsApp.</p></details>
     <details><summary>How do I pay?</summary><p>Monthly by EFT after your free trial. We'll remind you a few days before the trial ends.</p></details>
   </section>
 

@@ -1,0 +1,14 @@
+{# shared by the booking page and the "booked" page; needs the values from site._common #}
+{% if owner_view %}
+<div class="owner-bar">
+  <span>{{ 'Demo — this is the page your customers see.' if t.is_demo else 'Your booking page, as customers see it.' }}</span>
+  <form method="post" action="{{ url_for('owner.settings_theme') }}" class="look-dots" aria-label="Look">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="next" value="{{ request.path }}">
+    {% for key, th in themes.items() %}
+    <button name="theme" value="{{ key }}" class="look-dot" style="--dot-bg: {{ th.bg }}; --dot: {{ th.accent }}" title="{{ th.name }}" aria-label="{{ th.name }} look" aria-pressed="{{ 'true' if key == theme else 'false' }}"></button>
+    {% endfor %}
+  </form>
+  <a href="{{ url_for('owner.booking_list') }}">Open app →</a>
+</div>
+{% endif %}

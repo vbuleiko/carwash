@@ -1,3 +1,5 @@
+import json
+import re
 from datetime import date, datetime, time, timedelta
 
 from app import queries, reports, seed
@@ -427,3 +429,184 @@ def test_admin_disabled_without_password(tmp_path):
     from app import create_app
     app = create_app({"TESTING": True, "SECRET_KEY": "x", "DATABASE": str(tmp_path / "a.db"), "ADMIN_PASSWORD": ""})
     assert app.test_client().get("/admin/login").status_code == 404
+
+
+# --- online booking -----------------------------------------------------------
+
+SLUG = "bubbles-car-wash"
+
+
+def open_all_week(owner, capacity=2, **extra):
+    data = {"booking_on": "1", "slug": SLUG, "slot_capacity": str(capacity)}
+    for i in range(7):
+        data.update({f"open_{i}": "1", f"from_{i}": "00:00", f"to_{i}": "23:30"})
+    return owner.post("/app/settings/booking", {**data, **extra})
+
+
+def first_slot(page: bytes) -> str:
+    return re.search(rb'name="slot" value="([^"]+)"', page).group(1).decode()
+
+
+def book(customer, slot, services, car_type, **extra):
+    data = {"car_type_id": car_type, "service_id": services, "slot": slot, "name": "Thandi",
+            "phone": "083 222 3333", **extra}
+    return customer.post(f"/book/{SLUG}", data)
+
+
+def test_customer_books_and_owner_confirms_and_checks_in(app, owner, db):
+    tid = tenant_id(db)
+    open_all_week(owner)
+    types, svcs = ids(db, "car_types", tid), ids(db, "services", tid)
+    customer = Browser(app.test_client())
+    page = customer.get(f"/book/{SLUG}")
+    assert page.status_code == 200 and b"Bubbles Car Wash" in page.data and b"Wash &amp; Vac" in page.data
+
+    resp = book(customer, first_slot(page.data), [svcs[1], svcs[4]], types[1], plate="ca 777")
+    assert resp.status_code == 302
+    b = db.execute("SELECT * FROM bookings").fetchone()
+    assert (b["status"], b["phone"], b["plate"], b["price_cents"]) == ("new", "27832223333", "CA 777", 13000 + 2500)
+    assert b"Booking received" in customer.get(resp.location).data
+
+    listed = owner.get("/app/bookings").data.decode()
+    assert "Thandi" in listed and "https://wa.me/27832223333?text=" in listed and "is%20confirmed" in listed
+    assert 'class="tab-badge"' in listed
+    resp = owner.post(f"/app/booking/{b['id']}/confirm", headers={"X-Requested-With": "fetch"})
+    assert resp.json == {"ok": True}
+    assert db.execute("SELECT status FROM bookings").fetchone()[0] == "confirmed"
+    assert b"You&#39;re booked" in customer.get(f"/book/{SLUG}/{b['code']}").data
+
+    assert b"Booked by" in owner.get(f"/app/new?booking={b['id']}").data
+    resp = owner.post(f"/app/new?booking={b['id']}", {
+        "plate": "CA 777", "phone": "083 222 3333", "car_type_id": types[1], "service_id": [svcs[1], svcs[4]],
+    })
+    assert resp.status_code == 302
+    visit = db.execute("SELECT * FROM visits").fetchone()
+    b = db.execute("SELECT * FROM bookings").fetchone()
+    assert (b["status"], b["visit_id"]) == ("arrived", visit["id"]) and visit["price_cents"] == 15500
+
+
+def test_today_bookings_are_on_the_board(owner, db):
+    from app import bookings
+    tid = tenant_id(db)
+    with db:
+        bookings.create(db, tid, slot_at=ts(), name="Lerato", phone="27831112222", plate="", note="",
+                        car_type_id=ids(db, "car_types", tid)[0], service_ids=[ids(db, "services", tid)[0]],
+                        price_cents=7000)
+    board = owner.get("/app/").data
+    assert b"Booked today" in board and b"Lerato" in board and b"Arrived" in board
+
+
+def test_full_and_past_times_cannot_be_booked(app, owner, db):
+    tid = tenant_id(db)
+    open_all_week(owner, capacity=1)
+    types, svcs = ids(db, "car_types", tid), ids(db, "services", tid)
+    first, second = Browser(app.test_client()), Browser(app.test_client())
+    slot = first_slot(first.get(f"/book/{SLUG}").data)
+    assert book(first, slot, [svcs[0]], types[0]).status_code == 302
+    page = second.get(f"/book/{SLUG}").data
+    assert f'value="{slot}"'.encode() not in page
+    resp = book(second, slot, [svcs[0]], types[0])
+    assert resp.status_code == 200 and b"just been taken" in resp.data
+    assert b"just been taken" in book(second, "2000-01-01 09:00", [svcs[0]], types[0]).data
+    assert b"just been taken" in book(second, "garbage", [svcs[0]], types[0]).data
+    assert db.execute("SELECT COUNT(*) FROM bookings").fetchone()[0] == 1
+
+
+def test_booking_form_errors(app, owner, db):
+    open_all_week(owner)
+    customer = Browser(app.test_client())
+    customer.get(f"/book/{SLUG}")
+    resp = customer.post(f"/book/{SLUG}", {"name": "", "phone": "12", "car_type_id": "x", "service_id": "999"})
+    for error in (b"Choose your car type", b"Choose at least one service", b"Pick a day", b"Enter your name",
+                  b"Enter your WhatsApp"):
+        assert error in resp.data
+    assert customer.get("/book/no-such-wash").status_code == 404
+
+
+def test_bookings_are_private(app, owner, db):
+    tid = tenant_id(db)
+    open_all_week(owner)
+    customer = Browser(app.test_client())
+    book(customer, first_slot(customer.get(f"/book/{SLUG}").data), [ids(db, "services", tid)[0]],
+         ids(db, "car_types", tid)[0])
+    bid = db.execute("SELECT id FROM bookings").fetchone()[0]
+    other = Browser(app.test_client())
+    signup(other, email="other@example.com", name="Other Wash")
+    assert b"Thandi" not in other.get("/app/bookings").data
+    assert other.post(f"/app/booking/{bid}/confirm").status_code == 404
+    assert other.post(f"/app/booking/{bid}/cancel").status_code == 404
+    assert b"Booked by" not in other.get(f"/app/new?booking={bid}").data
+    owner.post(f"/app/booking/{bid}/cancel")
+    assert db.execute("SELECT status FROM bookings").fetchone()[0] == "cancelled"
+
+
+def test_booking_settings(app, owner, db):
+    resp = open_all_week(owner, capacity=3, open_6="", from_0="12:00", to_0="09:00")
+    assert b"Monday: closing time" in resp.data
+    resp = open_all_week(owner, capacity=3, open_6="", slug="Bad Slug!")
+    assert b"Page address" in resp.data
+    open_all_week(owner, capacity=3, open_6="")
+    t = db.execute("SELECT * FROM tenants").fetchone()
+    assert t["slot_capacity"] == 3 and t["slug"] == SLUG and json.loads(t["hours"])[6] is None
+
+    other = Browser(app.test_client())
+    signup(other, email="other@example.com", name="Other Wash")
+    resp = other.post("/app/settings/booking", {"slug": SLUG, "slot_capacity": "2"})
+    assert b"That page address is taken" in resp.data
+
+    owner.post("/app/settings/booking", {"slug": SLUG, "slot_capacity": "2"})  # booking off, every day closed
+    customer = Browser(app.test_client())
+    assert b"Online booking is closed" in customer.get(f"/book/{SLUG}").data
+    resp = customer.post(f"/book/{SLUG}", {"slot": "x"})
+    assert resp.status_code == 302 and db.execute("SELECT COUNT(*) FROM bookings").fetchone()[0] == 0
+
+
+def test_expired_subscription_closes_booking(app, owner, db):
+    open_all_week(owner)
+    with db:
+        db.execute("UPDATE tenants SET paid_until = ?", ((date.today() - timedelta(days=3)).isoformat(),))
+    assert b"Online booking is closed" in Browser(app.test_client()).get(f"/book/{SLUG}").data
+
+
+def test_demo_has_a_booking_page_with_its_own_look_switch(browser, db):
+    resp = browser.post("/demo", {"next": "book"})
+    demo = db.execute("SELECT * FROM tenants WHERE is_demo = 1").fetchone()
+    assert resp.location.endswith(f"/book/{demo['slug']}")
+    page = browser.get(resp.location).data
+    assert b"this is the page your customers see" in page and b'noindex' in page
+    assert db.execute("SELECT COUNT(*) FROM bookings WHERE tenant_id = ?", (demo["id"],)).fetchone()[0] > 0
+    resp = browser.post("/app/settings/theme", {"theme": "noir", "next": f"/book/{demo['slug']}"})
+    assert resp.location.endswith(f"/book/{demo['slug']}")
+    assert b"themes/noir.css" in browser.get(resp.location).data
+    resp = browser.post("/app/settings/theme", {"theme": "volt", "next": "https://evil.example"})
+    assert resp.location.endswith("/app/settings/theme")
+    assert browser.post("/demo", {"next": "book"}).location.endswith(f"/book/{demo['slug']}")
+
+
+def test_car_washes_from_before_booking_get_a_page_address(db):
+    from app import bookings
+    with db:
+        tid = seed.create_tenant(db, name="Old Wash", email="old@example.com")
+        db.execute("UPDATE tenants SET slug = '' WHERE id = ?", (tid,))
+        seed.create_tenant(db, name="Old Wash", email="old2@example.com")
+        bookings.fill_slugs(db)
+    assert db.execute("SELECT slug FROM tenants WHERE id = ?", (tid,)).fetchone()[0] == "old-wash-2"
+    assert bookings.slugify("!!") == "car-wash" and bookings.slugify("Joe's  Car-Wash") == "joe-s-car-wash"
+
+
+def test_site_mode_serves_one_car_wash(tmp_path):
+    from app import create_app
+    app = create_app({"TESTING": True, "SECRET_KEY": "x", "DATABASE": str(tmp_path / "s.db"), "SITE_MODE": True,
+                      "RATELIMIT_ENABLED": False})
+    owner = Browser(app.test_client())
+    assert owner.get("/").location.endswith("/signup")
+    assert b"Set up your car wash" in owner.get("/signup").data
+    signup(owner, name="Shine Bros")
+    visitor = Browser(app.test_client())
+    page = visitor.get("/")
+    assert page.status_code == 200 and b"Shine Bros" in page.data
+    assert b"Owner login" in page.data and b"Bookings by" not in page.data
+    assert visitor.get("/book/shine-bros").location.endswith("/")
+    assert visitor.get("/signup").status_code == 404
+    assert visitor.post("/demo").status_code == 404
+    assert b"Shine Bros" in visitor.get("/login").data
