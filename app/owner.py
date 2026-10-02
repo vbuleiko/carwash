@@ -307,6 +307,8 @@ def visit(vid):
     if request.method == "POST":
         data, errors, matrix = _read_visit_form(db, v)
         status = request.form.get("status", v["status"])
+        if status == request.form.get("status_was"):  # left as it was: keep a tap made meanwhile on another phone
+            status = v["status"]
         if status not in queries.STATUS_LABELS:
             errors.append("Unknown status.")
         if not errors:
@@ -387,8 +389,9 @@ def ready(vid):
 def collected(vid):
     db = get_db()
     v = _visit_or_404(vid)
-    with db:
-        queries.apply_updates(db, vid, queries.status_updates(v, "collected"))
+    if v["status"] in ("queued", "washing", "ready"):  # a cancelled car stays cancelled
+        with db:
+            queries.apply_updates(db, vid, queries.status_updates(v, "collected"))
     return _done()
 
 
@@ -415,6 +418,11 @@ def delete(vid):
     db = get_db()
     v = _visit_or_404(vid)
     with db:
+        db.execute(  # "Arrived" on the wrong booking: it goes back to the list
+            "UPDATE bookings SET status = CASE WHEN confirmed_at IS NULL THEN 'new' ELSE 'confirmed' END, "
+            "visit_id = NULL WHERE visit_id = ? AND tenant_id = ?",
+            (vid, _tid()),
+        )
         db.execute("DELETE FROM visits WHERE id = ? AND tenant_id = ?", (vid, _tid()))
     return _done(f"Visit for {v['plate']} deleted.", url_for(".board"))
 
@@ -450,6 +458,8 @@ def confirm_booking(bid):
 def cancel_booking(bid):
     db = get_db()
     b = _booking_or_404(bid)
+    if b["status"] not in ("new", "confirmed"):
+        return _done(None, url_for(".booking_list"))
     with db:
         db.execute("UPDATE bookings SET status = 'cancelled' WHERE id = ?", (bid,))
     return _done(f"{b['name']}'s booking cancelled.", url_for(".booking_list"))

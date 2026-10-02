@@ -102,8 +102,16 @@
   });
 
   document.addEventListener("submit", (e) => {
-    const msg = e.target.dataset.confirm;
+    const f = e.target;
+    const msg = f.dataset.confirm;
     if (msg && !confirm(msg)) e.preventDefault();
+    if (e.defaultPrevented) return;
+    // a second tap while a slow network still sends the first one would add the car (or booking) twice
+    if (Date.now() - (f.sentAt || 0) < 10000) e.preventDefault();
+    else f.sentAt = Date.now();
+  });
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) document.querySelectorAll("form").forEach((f) => { f.sentAt = 0; });  // came back with "Back"
   });
 
   // --- customer booking page ----------------------------------------------------
@@ -125,13 +133,17 @@
     function update() {
       const type = form.querySelector('input[name="car_type_id"]:checked')?.value;
       let cents = 0, count = 0;
-      form.querySelectorAll('input[name="service_id"]').forEach((cb) => {
+      const boxes = [...form.querySelectorAll('input[name="service_id"]')];
+      boxes.forEach((cb) => {
         const p = (data.matrix[cb.value] || {})[type];
         cb.parentElement.querySelector(".svc-price").textContent = p != null ? money(p) : "";
-        if (cb.checked) { cents += p || 0; count += 1; }
+        cb.disabled = p == null;  // no price for this car: not bookable online
+        if (cb.disabled) cb.checked = false;
+        if (cb.checked) { cents += p; count += 1; }
+        cb.setCustomValidity("");
       });
-      const first = form.querySelector('input[name="service_id"]');
-      if (first) first.setCustomValidity(count ? "" : "Pick at least one service.");
+      const first = boxes.find((cb) => !cb.disabled);
+      if (first && !count) first.setCustomValidity("Pick at least one service.");
       total.textContent = count ? money(cents) : "—";
       const slot = form.querySelector('input[name="slot"]:checked');
       when.textContent = slot ? slot.dataset.label : "Pick a time";

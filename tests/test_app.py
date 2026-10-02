@@ -215,6 +215,25 @@ def test_team_can_be_cleared_and_start_keeps_it(owner, db):
     assert db.execute("SELECT COUNT(*) FROM visit_washers").fetchone()[0] == 0
 
 
+def test_tap_on_another_phone_is_not_undone(owner, db):
+    tid = tenant_id(db)
+    v = add_car(owner, db)
+    owner.post(f"/app/visit/{v['id']}/start")
+    assert b'name="status_was" value="washing"' in owner.get(f"/app/visit/{v['id']}").data
+    owner.post(f"/app/visit/{v['id']}/ready")  # meanwhile, on the tablet
+    form = {"plate": "CA 123-456", "phone": "082 111 2222", "car_type_id": ids(db, "car_types", tid)[0],
+            "service_id": ids(db, "services", tid)[0], "price": "70", "note": "mirror"}
+    owner.post(f"/app/visit/{v['id']}", {**form, "status": "washing", "status_was": "washing"})
+    v = db.execute("SELECT * FROM visits WHERE id = ?", (v["id"],)).fetchone()
+    assert (v["status"], v["note"]) == ("ready", "mirror") and v["ready_at"]
+    owner.post(f"/app/visit/{v['id']}", {**form, "status": "queued", "status_was": "washing"})
+    assert db.execute("SELECT status FROM visits WHERE id = ?", (v["id"],)).fetchone()[0] == "queued"
+
+    owner.post(f"/app/visit/{v['id']}/cancel")
+    owner.post(f"/app/visit/{v['id']}/collected")  # a stale board
+    assert db.execute("SELECT status FROM visits WHERE id = ?", (v["id"],)).fetchone()[0] == "cancelled"
+
+
 
 def test_car_wash_cannot_see_another_car_wash(app, owner, db):
     v = add_car(owner, db)
@@ -484,6 +503,12 @@ def test_customer_books_and_owner_confirms_and_checks_in(app, owner, db):
     b = db.execute("SELECT * FROM bookings").fetchone()
     assert (b["status"], b["visit_id"]) == ("arrived", visit["id"]) and visit["price_cents"] == 15500
 
+    owner.post(f"/app/booking/{b['id']}/cancel")  # already here: stays
+    assert db.execute("SELECT status FROM bookings").fetchone()[0] == "arrived"
+    owner.post(f"/app/visit/{visit['id']}/delete")  # "Arrived" on the wrong booking
+    b = db.execute("SELECT * FROM bookings").fetchone()
+    assert (b["status"], b["visit_id"]) == ("confirmed", None)
+
 
 def test_today_bookings_are_on_the_board(owner, db):
     from app import bookings
@@ -506,9 +531,9 @@ def test_full_and_past_times_cannot_be_booked(app, owner, db):
     page = second.get(f"/book/{SLUG}").data
     assert f'value="{slot}"'.encode() not in page
     resp = book(second, slot, [svcs[0]], types[0])
-    assert resp.status_code == 200 and b"just been taken" in resp.data
-    assert b"just been taken" in book(second, "2000-01-01 09:00", [svcs[0]], types[0]).data
-    assert b"just been taken" in book(second, "garbage", [svcs[0]], types[0]).data
+    assert resp.status_code == 200 and b"no longer free" in resp.data
+    assert b"no longer free" in book(second, "2000-01-01 09:00", [svcs[0]], types[0]).data
+    assert b"no longer free" in book(second, "garbage", [svcs[0]], types[0]).data
     assert db.execute("SELECT COUNT(*) FROM bookings").fetchone()[0] == 1
 
 
@@ -521,6 +546,23 @@ def test_booking_form_errors(app, owner, db):
                   b"Enter your WhatsApp"):
         assert error in resp.data
     assert customer.get("/book/no-such-wash").status_code == 404
+
+
+def test_service_without_a_price_cannot_be_booked(app, owner, db):
+    tid = tenant_id(db)
+    open_all_week(owner)
+    types, svcs = ids(db, "car_types", tid), ids(db, "services", tid)
+    with db:  # no Engine Wash for minibuses
+        db.execute("DELETE FROM prices WHERE service_id = ? AND car_type_id = ?", (svcs[3], types[3]))
+        db.execute("DELETE FROM prices WHERE service_id = ? AND car_type_id = ?", (svcs[0], types[0]))
+    customer = Browser(app.test_client())
+    page = customer.get(f"/book/{SLUG}").data.decode()
+    assert re.search(rf'value="{svcs[0]}"\s+disabled', page) and not re.search(rf'value="{svcs[1]}"\s+disabled', page)
+    slot = first_slot(page.encode())
+    resp = book(customer, slot, [svcs[1], svcs[3]], types[3])
+    assert b"Engine Wash can&#39;t be booked online" in resp.data
+    assert db.execute("SELECT COUNT(*) FROM bookings").fetchone()[0] == 0
+    assert book(customer, slot, [svcs[3]], types[2]).status_code == 302
 
 
 def test_bookings_are_private(app, owner, db):

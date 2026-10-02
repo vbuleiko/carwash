@@ -149,6 +149,9 @@ def book(slug):
     chosen = list(dict.fromkeys(int(x) for x in f.getlist("service_id") if is_number(x) and int(x) in service_ids))
     if not chosen:
         errors.append("Choose at least one service.")
+    unpriced = [s["name"] for s in services if s["id"] in chosen and car_type_id not in matrix.get(s["id"], {})]
+    if car_type_id and unpriced:  # no price for this car type: the car wash doesn't take it online
+        errors.append(f"{', '.join(unpriced)} can't be booked online for this car. Message us about it.")
     if not f.get("slot"):
         errors.append("Pick a day and a time.")
     name = f.get("name", "").strip()[:60]
@@ -157,7 +160,7 @@ def book(slug):
     phone = normalize_phone(f.get("phone"), tenant["country_code"])
     if not phone_is_valid(phone):
         errors.append("Enter your WhatsApp number, so we can confirm your booking.")
-    if not errors and not limiter.allow(f"book:{client_ip()}", 10, 3600):
+    if not errors and not limiter.allow(f"book:{tenant['id']}:{client_ip()}", 10, 3600):  # mobile networks share IPs
         errors.append("Too many bookings from this network. Please try again later.")
     if not errors:
         db.execute("BEGIN IMMEDIATE")  # two people taking the last place at once
@@ -172,7 +175,7 @@ def book(slug):
                 )
         if slot_at:
             return redirect(url_for(".done", slug=slug, code=code))
-        errors.append("Sorry, that time has just been taken. Please pick another one.")
+        errors.append("Sorry, that time is no longer free. Please pick another one.")
     for e in errors:
         flash(e, "error")
     return render_page(tenant, dict(f, car_type_id=car_type_id, service_ids=chosen))

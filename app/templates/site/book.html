@@ -35,7 +35,7 @@
         {% for s in services %}
         {% set p = matrix.get(s.id, {}).get(car_type_id) %}
         <label class="svc">
-          <input type="checkbox" name="service_id" value="{{ s.id }}" {{ 'checked' if s.id in chosen }}>
+          <input type="checkbox" name="service_id" value="{{ s.id }}" {{ 'checked' if s.id in chosen }} {{ 'disabled' if p is none }}>
           <span class="svc-box">
             <span class="svc-tick">{{ icon('check') }}</span>
             <span class="svc-name">{{ s.name }}</span>

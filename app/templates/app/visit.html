@@ -39,6 +39,7 @@
     {% endif %}
   </fieldset>
 
+  <input type="hidden" name="status_was" value="{{ form.status_was or v.status }}">
   <label class="field">
     <span>Status</span>
     <select name="status">
