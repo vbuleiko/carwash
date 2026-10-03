@@ -150,8 +150,10 @@
   }
   let lookTap = 0;
   document.querySelectorAll("form[data-look]").forEach((form) => {
+    let tapped = null;  // e.submitter came in iOS 15.4
+    form.addEventListener("click", (e) => { tapped = e.target.closest("button"); });
     form.addEventListener("submit", (e) => {
-      const btn = e.submitter;
+      const btn = e.submitter || tapped;
       if (!btn?.value) return;
       e.preventDefault();
       const tap = ++lookTap;

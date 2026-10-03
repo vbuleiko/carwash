@@ -133,6 +133,7 @@ bash deploy/backup.sh   # бэкап SQLite в backups/
 - Playwright: `chromium.launch(executable_path='/opt/pw-browsers/chromium')`. Не запускать `playwright install`.
 - Docker: демон не запущен, стартовать через `sudo dockerd &`.
 - `docker build` в песочнице не доверяет прокси-сертификату. Собирать копию Dockerfile, в которой pip-шаг заменён на `RUN --mount=type=secret,id=ca PIP_CERT=/run/secrets/ca pip install ...`, с флагом `--secret id=ca,src=/root/.ccr/ca-bundle.crt`. **Эту правку не коммитить.** На настоящей VM она не нужна.
+- Safari и Firefox (Playwright для них не ставить): `sudo apt-get install webkit2gtk-driver xvfb` (WebKitGTK, движок Safari; браузер — `/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/MiniBrowser --automation`), Firefox — архив с download.mozilla.org + geckodriver с GitHub; гонять через Selenium под `xvfb-run`. Окно уже ~450–500px не сужается.
 - wa.me из песочницы недоступен: реальную отправку в WhatsApp проверять только на телефоне.
 
 ## Состояние на 30.09.2026
