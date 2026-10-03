@@ -387,6 +387,9 @@ def test_owner_picks_a_look(owner, db):
     assert owner.post("/app/settings/theme", {"theme": "nope"}).status_code == 400
     owner.post("/app/settings/theme", {"theme": "classic"})
     assert b"themes/" not in owner.get("/app/").data
+    resp = owner.post("/app/settings/theme", {"theme": "volt"}, headers={"X-Requested-With": "fetch"})
+    assert resp.json == {"ok": True} and "theme=volt" in resp.headers["Set-Cookie"]  # switched in place, no reload
+    assert db.execute("SELECT theme FROM tenants").fetchone()[0] == "volt"
 
 
 def test_visitor_look_carries_into_signup_and_demo(app, browser, db):
@@ -396,6 +399,9 @@ def test_visitor_look_carries_into_signup_and_demo(app, browser, db):
     resp = browser.post("/theme", {"theme": "volt"})
     assert resp.status_code == 302 and resp.location.endswith("/#look")
     assert b"themes/volt.css" in browser.get("/").data
+    resp = browser.post("/theme", {"theme": "noir"}, headers={"X-Requested-With": "fetch"})
+    assert resp.json == {"ok": True} and "theme=noir" in resp.headers["Set-Cookie"]
+    browser.post("/theme", {"theme": "volt"})
     browser.post("/demo")
     assert db.execute("SELECT theme FROM tenants WHERE is_demo = 1").fetchone()[0] == "volt"
     browser.post("/logout")

@@ -737,7 +737,7 @@ def settings_theme():
             db.execute("UPDATE tenants SET theme = ? WHERE id = ?", (name, _tid()))
         back = request.form.get("next", "")  # the booking page has its own look switch
         back = back if (back == "/" or back.startswith("/book/")) and back.isprintable() else url_for(".settings_theme")
-        return themes.remember(redirect(back), name)
+        return themes.remember(_done(to=back), name)
     return render_template("app/settings_theme.html")
 
 

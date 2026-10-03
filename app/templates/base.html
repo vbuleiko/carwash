@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-180.png') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ config.ASSET_VERSION }}">
-  {% if theme != 'classic' %}<link rel="stylesheet" href="{{ url_for('static', filename='themes/' ~ theme ~ '.css') }}?v={{ config.ASSET_VERSION }}">{% endif %}
+  {% if theme_css(theme) %}<link rel="stylesheet" href="{{ theme_css(theme) }}" id="look-css">{% endif %}
   <script src="{{ url_for('static', filename='app.js') }}?v={{ config.ASSET_VERSION }}" defer></script>
   {% block head %}{% endblock %}
 </head>

@@ -44,12 +44,12 @@
           <div class="bubble mini-bubble">Hi! Your Toyota Corolla (CA 482-117) is ready for collection at Sunshine Car Wash. Total: R100. Thank you!<span class="tick">✓✓</span></div>
         </div>
       </div>
-      <form method="post" action="{{ url_for('public.theme') }}" class="look" id="look">
+      <form method="post" action="{{ url_for('public.theme') }}" class="look" id="look" data-look>
         <input type="hidden" name="csrf" value="{{ csrf_token() }}">
         <span class="look-label">Look <b>{{ themes[theme].name }}</b></span>
         <span class="look-dots">
           {% for key, t in themes.items() %}
-          <button name="theme" value="{{ key }}" class="look-dot" style="--dot-bg: {{ t.bg }}; --dot: {{ t.accent }}" title="{{ t.name }}" aria-label="{{ t.name }} look" aria-pressed="{{ 'true' if key == theme else 'false' }}"></button>
+          <button name="theme" value="{{ key }}" class="look-dot" data-css="{{ theme_css(key) }}" data-bg="{{ t.bg }}" style="--dot-bg: {{ t.bg }}; --dot: {{ t.accent }}" title="{{ t.name }}" aria-label="{{ t.name }} look" aria-pressed="{{ 'true' if key == theme else 'false' }}"></button>
           {% endfor %}
         </span>
       </form>

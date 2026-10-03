@@ -118,6 +118,55 @@
     if (e.persisted) document.querySelectorAll("form").forEach((f) => { f.sentAt = 0; });  // came back with "Back"
   });
 
+  // --- look switch: no reload, so the page stays where it is ---------------------
+  function loadLook(href) {
+    if (!href) return Promise.resolve(null);  // Classic is style.css alone, with system fonts
+    return new Promise((ok, fail) => {
+      const link = Object.assign(document.createElement("link"), { rel: "stylesheet", href, media: "print" });
+      link.onload = () => ok(link);
+      link.onerror = () => { link.remove(); fail(); };
+      (document.getElementById("look-css") || document.querySelector('link[rel="stylesheet"]')).after(link);
+    }).then((link) => {
+      // its fonts too, or the text would wrap again (and move the page) when they come
+      const css = [...link.sheet.cssRules].map((r) => r.cssText).join("");
+      const fonts = [...document.fonts].filter((f) => css.includes(f.family.replace(/"/g, "")));
+      return Promise.all(fonts.map((f) => f.load().catch(() => null))).then(() => link);
+    });
+  }
+  function showLook(form, btn, link) {
+    const top = btn.getBoundingClientRect().top;
+    document.getElementById("look-css")?.remove();
+    if (link) {
+      link.sheet.media.mediaText = "all";  // not link.media: Chrome would reload the sheet and show no look for a frame
+      link.id = "look-css";
+    }
+    document.querySelector('meta[name="theme-color"]').content = btn.dataset.bg;
+    const check = form.querySelector('[aria-pressed="true"] > .icon');
+    if (check) btn.append(check);
+    form.querySelectorAll("[aria-pressed]").forEach((b) => b.setAttribute("aria-pressed", b === btn));
+    const label = form.querySelector(".look-label b");
+    if (label) label.textContent = btn.title;
+    scrollBy(0, btn.getBoundingClientRect().top - top);  // the text above wraps anew: keep the button under the finger
+  }
+  let lookTap = 0;
+  document.querySelectorAll("form[data-look]").forEach((form) => {
+    form.addEventListener("submit", (e) => {
+      const btn = e.submitter;
+      if (!btn?.value) return;
+      e.preventDefault();
+      const tap = ++lookTap;
+      const body = new FormData(form);
+      body.set("theme", btn.value);
+      const saved = fetch(form.action, {
+        method: "POST", body, credentials: "same-origin", headers: { "X-Requested-With": "fetch" },
+      }).then((r) => { if (!r.ok) throw new Error(r.status); });
+      const look = loadLook(btn.dataset.css);
+      Promise.all([look, saved])
+        .then(([link]) => (tap === lookTap ? showLook(form, btn, link) : link?.remove()))
+        .catch(() => { look.then((link) => link?.remove(), () => null); notSaved(); });
+    });
+  });
+
   // --- customer booking page ----------------------------------------------------
   const book = document.getElementById("book-form");
   if (book) bookingForm(book);

@@ -9,6 +9,7 @@ from flask import (
     current_app,
     flash,
     g,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -156,7 +157,10 @@ def demo():
 @bp.post("/theme")
 def theme():
     name = request.form.get("theme", "")
-    resp = redirect(url_for("public.landing", _anchor="look"))
+    if request.headers.get("X-Requested-With") == "fetch":  # app.js switches the look in place
+        resp = jsonify(ok=True)
+    else:
+        resp = redirect(url_for("public.landing", _anchor="look"))
     return themes.remember(resp, name) if name in themes.THEMES else resp
 
 

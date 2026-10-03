@@ -1,5 +1,5 @@
 """Five dark looks. The owner picks one for the app, a visitor picks one on the landing page."""
-from flask import current_app, g, request
+from flask import current_app, g, request, url_for
 
 THEMES = {
     "carbon": {"name": "Carbon", "about": "Motorsport. Signal orange on carbon black.",
@@ -32,6 +32,13 @@ def current() -> str:
     if tenant is not None:
         return tenant["theme"] if tenant["theme"] in THEMES else default()
     return picked() or default()
+
+
+def css(name: str) -> str:
+    """The stylesheet a look adds on top of style.css; Classic is style.css alone."""
+    if name == "classic":
+        return ""
+    return url_for("static", filename=f"themes/{name}.css", v=current_app.config["ASSET_VERSION"])
 
 
 def remember(resp, name: str):

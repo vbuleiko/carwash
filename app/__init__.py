@@ -85,7 +85,7 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     @app.context_processor
     def theme():
-        return {"theme": themes.current(), "themes": themes.THEMES}
+        return {"theme": themes.current(), "themes": themes.THEMES, "theme_css": themes.css}
 
     @app.context_processor
     def support_link():
