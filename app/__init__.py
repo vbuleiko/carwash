@@ -1,15 +1,13 @@
 """Washbook — a car wash notebook that texts customers on WhatsApp."""
-import mimetypes
 import os
 import secrets
-import time
 from datetime import timedelta
 from pathlib import Path
 
-from flask import Flask, g, render_template
+from flask import Flask, g, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from . import admin, bookings, db, disc, owner, public, seed, site, themes
+from . import admin, assets, bookings, db, disc, owner, public, seed, site, themes
 from .security import check_csrf, csrf_token
 from .utils import fmt_minutes, format_phone, money, money_input, to_local, wa_link
 
@@ -28,11 +26,8 @@ def _secret_key(data_dir: Path) -> str:
     return key
 
 
-mimetypes.add_type("font/woff2", ".woff2")  # slim Python images have no system mime table
-
-
 def create_app(test_config: dict | None = None) -> Flask:
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder=None)
     data_dir = Path(os.environ.get("DATA_DIR", "data")).resolve()
     if not test_config:
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -52,7 +47,6 @@ def create_app(test_config: dict | None = None) -> Flask:
         SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "0") == "1",
         PERMANENT_SESSION_LIFETIME=timedelta(days=90),
         MAX_CONTENT_LENGTH=256 * 1024,
-        ASSET_VERSION=str(int(time.time())),
     )
     if test_config:
         app.config.update(test_config)
@@ -68,6 +62,10 @@ def create_app(test_config: dict | None = None) -> Flask:
         with conn:
             seed.cleanup_demos(conn)
             bookings.fill_slugs(conn)
+
+    static = assets.Static(Path(app.root_path) / "static")
+    app.add_url_rule("/static/<path:filename>", "static", static.send)
+    app.url_defaults(static.add_version)
 
     app.register_blueprint(public.bp)
     app.register_blueprint(owner.bp)
@@ -102,6 +100,16 @@ def create_app(test_config: dict | None = None) -> Flask:
             "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
             "script-src 'self' 'wasm-unsafe-eval'; frame-ancestors 'none'; base-uri 'self'",  # wasm: disc scanner
         )
+        return resp
+
+    @app.after_request
+    def revalidate_pages(resp):
+        """A page that hasn't changed comes back as a tiny 304 and the phone shows the copy it has."""
+        if request.method == "GET" and resp.status_code == 200 and resp.mimetype == "text/html":
+            resp.cache_control.private = True
+            resp.cache_control.no_cache = True
+            resp.add_etag(weak=True)  # weak: Caddy rewrites a strong one when it compresses the page
+            resp.make_conditional(request)
         return resp
 
     @app.errorhandler(400)

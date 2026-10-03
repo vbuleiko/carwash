@@ -2,6 +2,8 @@ import json
 import re
 from datetime import date, datetime, time, timedelta
 
+import brotli
+
 from app import queries, reports, seed
 from app.utils import (
     fill_template,
@@ -845,3 +847,29 @@ def test_old_database_drops_washer_pay(tmp_path):
     assert [r[1] for r in conn.execute("PRAGMA table_info(visit_washers)")] == ["visit_id", "washer_id"]
     assert "pay_type" not in [r[1] for r in conn.execute("PRAGMA table_info(washers)")]
     assert conn.execute("SELECT * FROM visit_washers").fetchall() == [(1, 1)]
+
+
+def test_static_files_are_cached_by_content_hash(client):
+    page = client.get("/").data.decode()
+    css = re.search(r'href="(/static/style\.css\?v=\w+)"', page)[1]
+    assert re.search(r'rel="preload" href="/static/fonts/barlow-400\.woff2\?v=\w+"', page)  # Carbon's own font
+    resp = client.get(css, headers={"Accept-Encoding": "gzip, deflate, br"})
+    assert resp.headers["Cache-Control"] == "public, max-age=31536000, immutable"
+    assert resp.headers["Content-Encoding"] == "br" and resp.headers["Vary"] == "Accept-Encoding"
+    fonts = re.findall(r"url\((/static/fonts/[^)]+)\)", brotli.decompress(resp.data).decode())
+    assert fonts and all("?v=" in f for f in fonts)
+    assert client.get(fonts[0]).headers["Cache-Control"] == "public, max-age=31536000, immutable"
+    plain = client.get("/static/style.css?v=old")  # an old page asks for an old hash: no long cache
+    assert plain.headers["Cache-Control"] == "no-cache" and "Content-Encoding" not in plain.headers
+    assert client.get("/static/style.css", headers={"If-None-Match": plain.headers["ETag"]}).status_code == 304
+    for bad in ("/static/../db.py", "/static/fonts", "/static/nope.css"):
+        assert client.get(bad).status_code == 404
+
+
+def test_unchanged_page_comes_back_as_304(owner):
+    first = owner.get("/app/settings")
+    assert first.headers["Cache-Control"] == "private, no-cache"
+    again = owner.get("/app/settings", headers={"If-None-Match": first.headers["ETag"]})
+    assert again.status_code == 304 and again.data == b""
+    owner.post("/app/settings/theme", {"theme": "noir"})
+    assert owner.get("/app/settings", headers={"If-None-Match": first.headers["ETag"]}).status_code == 200
