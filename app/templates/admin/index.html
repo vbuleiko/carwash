@@ -21,6 +21,8 @@
     <div class="stat"><b>{{ stats.demos_24h }}</b><span>demos, 24 h</span></div>
   </section>
 
+  <p class="muted small">Own address: the car wash adds a DNS record <b>CNAME</b> for its subdomain (e.g. <b>book</b>) → <b>{{ request.host }}</b>, then you save the address here. HTTPS turns on by itself on the first visit. Website: download the files and upload them to the car wash's hosting (public_html).</p>
+
   {% for t in tenants %}
   <article class="card tenant {{ 'inactive' if t.is_disabled }}">
     <div class="tenant-head">
@@ -37,7 +39,8 @@
       · last car {{ t.last_car[:10] if t.last_car else 'never' }}
       · last seen {{ t.last_seen_at[:16] if t.last_seen_at else 'never' }} UTC
       · until {{ t.paid_until }}
-      · <a href="{{ url_for('site.page', slug=t.slug) }}" target="_blank" rel="noopener">booking page</a>
+      · <a href="{{ t.page_url }}" target="_blank" rel="noopener">booking page</a>
+      · website: <a href="{{ url_for('admin.website', tid=t.id) }}" target="_blank" rel="noopener">preview</a>, <a href="{{ url_for('admin.website_zip', tid=t.id) }}">download</a>
     </div>
     <div class="row wrap-row">
       <form method="post" action="{{ url_for('admin.extend', tid=t.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="months" value="1"><button class="btn">+1 month</button></form>
@@ -49,6 +52,11 @@
       </form>
       <form method="post" action="{{ url_for('admin.open_as', tid=t.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn">Open app</button></form>
       <form method="post" action="{{ url_for('admin.reset_password', tid=t.id) }}" data-confirm="Reset password for {{ t.email }}?"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn ghost">Reset password</button></form>
+      <form method="post" action="{{ url_for('admin.set_domain', tid=t.id) }}" class="row">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <div class="prefix-input"><span>https://</span><input name="domain" value="{{ t.domain }}" placeholder="book.theirwash.co.za" aria-label="Own address" autocapitalize="off" autocomplete="off" spellcheck="false"></div>
+        <button class="btn">Save</button>
+      </form>
       <form method="post" action="{{ url_for('admin.toggle', tid=t.id) }}" data-confirm="{{ 'Enable' if t.is_disabled else 'Pause' }} {{ t.name }}?"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn ghost {{ '' if t.is_disabled else 'danger' }}">{{ 'Enable' if t.is_disabled else 'Pause' }}</button></form>
     </div>
   </article>

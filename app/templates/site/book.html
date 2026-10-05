@@ -112,7 +112,7 @@
 <footer class="site-footer">
   <span>© {{ t.name }}</span>
   <a href="{{ url_for('public.privacy') }}">Privacy</a>
-  {% if config.SITE_MODE %}<a href="{{ url_for('public.login') }}">Owner login</a>{% else %}<span>Bookings by <a href="{{ url_for('public.landing') }}">{{ config.APP_NAME }}</a></span>{% endif %}
+  {% if g.host %}<a href="{{ url_for('public.login') }}">Owner login</a>{% else %}<span>Bookings by <a href="{{ url_for('public.landing') }}">{{ config.APP_NAME }}</a></span>{% endif %}
 </footer>
 {% if t.is_demo %}{{ preview_dialog("On a real booking page this opens WhatsApp with the message ready.") }}{% endif %}
 {% endblock %}

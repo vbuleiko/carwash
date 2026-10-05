@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     theme         TEXT NOT NULL DEFAULT '',        -- '' = the site default
     session_key   TEXT NOT NULL DEFAULT '',        -- in every login cookie; a new one logs out all devices
     slug          TEXT NOT NULL DEFAULT '',        -- booking page address: /book/<slug>
+    domain        TEXT NOT NULL DEFAULT '',        -- its own address, e.g. book.joeswash.co.za; '' = none
     address       TEXT NOT NULL DEFAULT '',
     hours         TEXT NOT NULL DEFAULT '',        -- JSON, 7 days from Monday: ["08:00", "17:00"] or null; '' = default
     slot_capacity INTEGER NOT NULL DEFAULT 2,      -- cars that can be booked for the same time
@@ -171,6 +172,7 @@ ADDED_COLUMNS = [
     ("tenants", "booking_on", "INTEGER NOT NULL DEFAULT 1"),
     ("tenants", "msg_booking", "TEXT NOT NULL DEFAULT ''"),
     ("tenants", "msg_cancel", "TEXT NOT NULL DEFAULT ''"),
+    ("tenants", "domain", "TEXT NOT NULL DEFAULT ''"),
     ("services", "minutes", "INTEGER NOT NULL DEFAULT 30"),
     ("bookings", "minutes", "INTEGER NOT NULL DEFAULT 30"),
     ("bookings", "cancelled_by", "TEXT NOT NULL DEFAULT ''"),
@@ -185,6 +187,7 @@ DROPPED_COLUMNS = [
 # indexes on added columns: created after the ALTERs
 LATE_SCHEMA = """
 CREATE UNIQUE INDEX IF NOT EXISTS tenants_by_slug ON tenants (slug) WHERE slug != '';
+CREATE UNIQUE INDEX IF NOT EXISTS tenants_by_domain ON tenants (domain) WHERE domain != '';
 """
 
 

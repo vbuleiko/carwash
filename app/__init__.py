@@ -35,12 +35,11 @@ def create_app(test_config: dict | None = None) -> Flask:
         APP_NAME=os.environ.get("APP_NAME", "Washbook"),
         DATABASE=str(data_dir / "washbook.db"),
         ADMIN_PASSWORD=os.environ.get("ADMIN_PASSWORD", ""),
-        PRICE_MONTHLY=os.environ.get("PRICE_MONTHLY", "R299"),
+        PRICE_MONTHLY=os.environ.get("PRICE_MONTHLY", "R349"),
         SUPPORT_WHATSAPP=os.environ.get("SUPPORT_WHATSAPP", ""),
         SUPPORT_EMAIL=os.environ.get("SUPPORT_EMAIL", ""),
         TRIAL_DAYS=int(os.environ.get("TRIAL_DAYS", "30")),
         THEME=os.environ.get("THEME", "carbon"),
-        SITE_MODE=os.environ.get("SITE_MODE", "0") == "1",  # one car wash's own site: its booking page on /
         RATELIMIT_ENABLED=True,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
@@ -72,6 +71,7 @@ def create_app(test_config: dict | None = None) -> Flask:
     app.register_blueprint(admin.bp)
     app.register_blueprint(site.bp)
 
+    app.before_request(site.find_host)
     app.before_request(check_csrf)
     app.jinja_env.globals.update(csrf_token=csrf_token, wa_link=wa_link, car_makes=disc.MAKES)
     app.jinja_env.filters.update(money=money, amount=money_input, phone=format_phone, minutes=fmt_minutes)

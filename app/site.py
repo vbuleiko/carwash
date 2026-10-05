@@ -1,8 +1,9 @@
 """The car wash's own page for customers: pick a car, services, day and time."""
+import re
+
 from flask import (
     Blueprint,
     abort,
-    current_app,
     flash,
     g,
     redirect,
@@ -30,9 +31,12 @@ from .utils import (
 bp = Blueprint("site", __name__, url_prefix="/book")
 
 
-def site_tenant():
-    """In site mode: the one car wash this installation belongs to."""
-    return get_db().execute("SELECT * FROM tenants WHERE is_demo = 0 ORDER BY id LIMIT 1").fetchone()
+def find_host():
+    """A car wash's own address (book.joeswash.co.za): its booking page on /, its app on /app."""
+    g.host = None
+    if request.endpoint != "static":
+        host = re.sub(r":\d+$", "", request.host.lower())
+        g.host = get_db().execute("SELECT * FROM tenants WHERE domain = ? AND is_demo = 0", (host,)).fetchone()
 
 
 def use(tenant):
@@ -47,18 +51,18 @@ def use(tenant):
 
 def _by_slug(slug: str):
     tenant = get_db().execute("SELECT * FROM tenants WHERE slug = ?", (slug,)).fetchone()
-    if current_app.config["SITE_MODE"] and tenant is not None and tenant["is_demo"]:
+    if g.host and (tenant is None or tenant["id"] != g.host["id"]):  # its own address shows no one else
         abort(404)
     return use(tenant)
 
 
 def page_url(tenant) -> str:
-    if current_app.config["SITE_MODE"]:
-        return url_for("public.landing", _external=True)
+    if tenant["domain"]:
+        return f"https://{tenant['domain']}/"
     return url_for("site.page", slug=tenant["slug"], _external=True)
 
 
-def _place(tenant) -> str:
+def place(tenant) -> str:
     parts = [tenant["address"], tenant["city"]]
     if parts[0] and parts[1] and parts[1].lower() in parts[0].lower():
         parts.pop()
@@ -81,14 +85,13 @@ def _common(tenant) -> dict:
     now = now_utc().astimezone(g.tz).strftime("%H:%M")
     return {
         "t": tenant,
-        "place": _place(tenant),
+        "place": place(tenant),
         "week": [(name, bookings.hours_text(s)) for name, s in zip(bookings.WEEKDAYS, week)],
         "today_index": g.today.weekday(),
         "today_hours": bookings.hours_text(span),
         "open_now": bool(span) and span[0] <= now < span[1],
         "owner_view": _owner_view(tenant),
-        "book_url": url_for("public.landing") if current_app.config["SITE_MODE"]
-        else url_for("site.page", slug=tenant["slug"]),
+        "book_url": "/" if g.host else url_for("site.page", slug=tenant["slug"]),
     }
 
 
@@ -128,8 +131,8 @@ def render_page(tenant, form=None):
 @bp.get("/<slug>")
 def page(slug):
     tenant = _by_slug(slug)
-    if current_app.config["SITE_MODE"]:
-        return redirect(url_for("public.landing"))
+    if g.host:
+        return redirect("/")
     return render_page(tenant)
 
 

@@ -1,0 +1,63 @@
+{# the ready-made website a car wash puts on its own hosting: admin → Website (preview) and Download #}
+{% from "_macros.html" import icon %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ t.name }}{{ ' · Car wash in ' ~ t.city if t.city }}</title>
+  <meta name="description" content="{{ t.name }}{{ ', ' ~ place if place }}. Book your car wash online: pick the services, the day and the time.">
+  <meta name="theme-color" content="{{ themes[look].bg }}">
+  <link rel="icon" href="{{ asset('icon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ asset('style.css') }}">
+  {% if look != 'classic' %}<link rel="stylesheet" href="{{ asset('theme.css') }}">{% endif %}
+  {% for font in themes[look].fonts %}<link rel="preload" href="{{ asset('fonts/' ~ font ~ '.woff2') }}" as="font" type="font/woff2" crossorigin>{% endfor %}
+</head>
+<body class="site website">
+<main class="book">
+  <header class="book-hero">
+    <p class="eyebrow">Car wash{{ ' · ' ~ t.city if t.city }}</p>
+    <h1>{{ t.name }}</h1>
+    {% if place %}<div class="book-meta"><span>{{ icon('pin') }} {{ place }}</span></div>{% endif %}
+    <div class="cta">
+      <a class="btn primary big" href="{{ book }}">{{ icon('calendar') }} Book online</a>
+      {% if wa %}<a class="btn wa big" href="{{ wa }}" target="_blank" rel="noopener">{{ icon('chat') }} WhatsApp us</a>{% endif %}
+    </div>
+  </header>
+
+  {% if services %}
+  <section class="step">
+    <h2>Services</h2>
+    <ul class="ticks">
+      {% for s in services %}<li>{{ icon('check') }} {{ s.name }}</li>{% endfor %}
+    </ul>
+    <a href="{{ book }}">See prices and free times →</a>
+  </section>
+  {% endif %}
+
+  <section class="step">
+    <h2>Book in a minute</h2>
+    <ol class="web-steps">
+      <li><span class="step-n">1</span><span><b>Pick your car and services.</b> Prices show as you go.</span></li>
+      <li><span class="step-n">2</span><span><b>Choose a day and a time.</b> Only free times are shown.</span></li>
+      <li><span class="step-n">3</span><span><b>We confirm on WhatsApp.</b> You pay at the car wash.</span></li>
+    </ol>
+    <a class="btn primary big" href="{{ book }}">Book online</a>
+  </section>
+
+  {% if place %}
+  <section class="step">
+    <h2>Find us</h2>
+    <p>{{ place }}</p>
+    <a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query={{ map_query|urlencode }}" target="_blank" rel="noopener">{{ icon('pin') }} Open in Google Maps</a>
+  </section>
+  {% endif %}
+</main>
+
+<footer class="site-footer">
+  <span>© {{ year }} {{ t.name }}</span>
+  <a href="{{ book }}">Book online</a>
+  <a href="{{ login }}">Owner login</a>
+</footer>
+</body>
+</html>

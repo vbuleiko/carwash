@@ -369,6 +369,11 @@ body.site { background: var(--bg); }
 .price-card ul { list-style: none; padding: 0; margin: 20px 0 24px; text-align: left; }
 .price-card li { display: flex; gap: 10px; padding: 6px 0; }
 .price-card li .icon { color: var(--accent); margin-top: 2px; }
+.site-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 48px; }
+.site-options-title { grid-column: 1 / -1; text-align: center; font-size: 1.3rem; margin: 0; }
+.site-options .feature { display: flex; flex-direction: column; }
+.feature .option-price { margin-top: auto; padding-top: 12px; color: var(--accent); font-weight: 700; }
+.site-options-note { grid-column: 1 / -1; text-align: center; margin: 0; }
 .faq { max-width: 720px; }
 .faq details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
 .faq summary { font-weight: 700; cursor: pointer; }
@@ -377,7 +382,7 @@ body.site { background: var(--bg); }
 .site-footer { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; padding: 24px 16px 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
 @media (max-width: 860px) {
   .hero { grid-template-columns: 1fr; gap: 36px; padding-top: 12px; }
-  .steps, .features { grid-template-columns: 1fr; }
+  .steps, .features, .site-options { grid-template-columns: 1fr; }
 }
 @media (max-width: 420px) {
   .site-nav nav > a:not(.btn) { display: none; }
@@ -507,6 +512,14 @@ body.site { background: var(--bg); }
   .book-split > .flash:first-of-type { margin-top: 40px; }
   .book-form, .book-split > .book-closed { margin-top: 36px; }
 }
+
+/* ready-made website for a car wash's own hosting */
+.website .book-hero .cta { margin-bottom: 0; }
+.website .step .ticks { margin: 0 0 12px; }
+.web-steps { list-style: none; padding: 0; margin: 0 0 22px; display: grid; gap: 12px; }
+.web-steps li { display: flex; align-items: baseline; gap: 12px; }
+.web-steps b { display: block; }
+.website .step > p { margin: 0 0 12px; }
 
 /* landing: booking page teaser */
 .promo { max-width: 1080px; margin: 0 auto; padding: 40px 20px; display: grid; grid-template-columns: .85fr 1.15fr; gap: 48px; align-items: center; }

@@ -768,22 +768,105 @@ def test_car_washes_from_before_booking_get_a_page_address(db):
     assert bookings.slugify("!!") == "car-wash" and bookings.slugify("Joe's  Car-Wash") == "joe-s-car-wash"
 
 
-def test_site_mode_serves_one_car_wash(tmp_path):
-    from app import create_app
-    app = create_app({"TESTING": True, "SECRET_KEY": "x", "DATABASE": str(tmp_path / "s.db"), "SITE_MODE": True,
-                      "RATELIMIT_ENABLED": False})
-    owner = Browser(app.test_client())
-    assert owner.get("/").location.endswith("/signup")
-    assert b"Set up your car wash" in owner.get("/signup").data
-    signup(owner, name="Shine Bros")
+HOST = "https://book.bubbles.co.za"
+
+
+def admin_login(app):
+    admin = Browser(app.test_client())
+    admin.post("/admin/login", {"password": "admin-pass"})
+    return admin
+
+
+def test_car_wash_on_its_own_address(app, owner, db):
+    tid = tenant_id(db)
+    open_all_week(owner)
+    signup(Browser(app.test_client()), email="other@example.com", name="Other Wash")
+    admin = admin_login(app)
+    admin.post(f"/admin/tenant/{tid}/domain", {"domain": "https://Book.Bubbles.co.za/"})
+    assert db.execute("SELECT domain FROM tenants WHERE id = ?", (tid,)).fetchone()[0] == "book.bubbles.co.za"
+    assert f"{HOST}/".encode() in owner.get("/app/bookings").data
+    assert b'name="slug"' not in owner.get("/app/settings/booking").data
+
     visitor = Browser(app.test_client())
-    page = visitor.get("/")
-    assert page.status_code == 200 and b"Shine Bros" in page.data
+    page = visitor.get("/", base_url=HOST)
+    assert page.status_code == 200 and b"Bubbles Car Wash" in page.data and b"Wash &amp; Vac" in page.data
     assert b"Owner login" in page.data and b"Bookings by" not in page.data
-    assert visitor.get("/book/shine-bros").location.endswith("/")
-    assert visitor.get("/signup").status_code == 404
-    assert visitor.post("/demo").status_code == 404
-    assert b"Shine Bros" in visitor.get("/login").data
+    assert visitor.get(f"/book/{SLUG}", base_url=HOST).location.endswith("/")
+    assert visitor.get("/book/other-wash", base_url=HOST).status_code == 404
+    assert visitor.get("/signup", base_url=HOST).status_code == 404
+    assert visitor.post("/demo", base_url=HOST).status_code == 404
+    assert visitor.get("/admin/login", base_url=HOST).status_code == 404
+    assert b"Bubbles Car Wash" in visitor.get("/login", base_url=HOST).data
+    assert b"Try the live demo" in app.test_client().get("/").data  # the main site stays the same
+
+    types, svcs = ids(db, "car_types", tid), ids(db, "services", tid)
+    resp = visitor.post(f"/book/{SLUG}", {"car_type_id": types[0], "service_id": [svcs[0]], "name": "Thandi",
+                                          "phone": "083 222 3333", "slot": first_slot(page.data)}, base_url=HOST)
+    done = visitor.get(resp.location, base_url=HOST).data
+    assert b"Booking received" in done and b'href="/"' in done
+
+    other = Browser(app.test_client())
+    other.get("/login", base_url=HOST)
+    login = {"email": "other@example.com", "password": "secret123"}
+    assert b"Wrong email or password" in other.post("/login", login, base_url=HOST).data
+    assert other.post("/login", {**login, "email": "owner@example.com"}, base_url=HOST).location.endswith("/app/")
+    assert b"Your booking page, as customers see it" in other.get("/", base_url=HOST).data
+
+
+def test_only_saved_addresses_get_a_certificate(app, owner, db):
+    client = app.test_client()
+    assert client.get("/tls-check?domain=book.bubbles.co.za").status_code == 404
+    admin_login(app).post(f"/admin/tenant/{tenant_id(db)}/domain", {"domain": "book.bubbles.co.za"})
+    assert client.get("/tls-check?domain=book.bubbles.co.za").status_code == 200
+    assert client.get("/tls-check?domain=evil.example.com").status_code == 404
+    assert client.get("/tls-check").status_code == 404
+
+
+def test_admin_checks_the_address(app, owner, db):
+    tid = tenant_id(db)
+    signup(Browser(app.test_client()), email="other@example.com", name="Other Wash")
+    admin = admin_login(app)
+    domain = lambda: db.execute("SELECT domain FROM tenants WHERE id = ?", (tid,)).fetchone()[0]
+    for bad in ("not a domain", "localhost", "joe@wash.co.za"):
+        assert b"an address like" in admin.post(f"/admin/tenant/{tid}/domain", {"domain": bad},
+                                                 follow_redirects=True).data
+    main = Browser(app.test_client())
+    main.get("/admin/login", base_url="https://washbook.co.za")
+    main.post("/admin/login", {"password": "admin-pass"}, base_url="https://washbook.co.za")
+    assert b"this site&#39;s own address" in main.post(f"/admin/tenant/{tid}/domain", {"domain": "washbook.co.za"},
+                                                     base_url="https://washbook.co.za", follow_redirects=True).data
+    admin.post(f"/admin/tenant/{tenant_id(db, 'other@example.com')}/domain", {"domain": "book.other.co.za"})
+    assert b"already has" in admin.post(f"/admin/tenant/{tid}/domain", {"domain": "book.other.co.za"},
+                                        follow_redirects=True).data
+    assert domain() == ""
+    admin.post(f"/admin/tenant/{tid}/domain", {"domain": "book.bubbles.co.za"})
+    assert domain() == "book.bubbles.co.za" and f"{HOST}/".encode() in admin.get("/admin/").data
+    admin.post(f"/admin/tenant/{tid}/domain", {"domain": ""})
+    assert domain() == ""
+
+
+def test_ready_made_website_for_their_hosting(app, owner, db):
+    import io
+    import zipfile
+    tid = tenant_id(db)
+    owner.post("/app/settings/theme", {"theme": "noir"})
+    admin = admin_login(app)
+    preview = admin.get(f"/admin/tenant/{tid}/website")
+    assert preview.status_code == 200 and b"themes/noir.css" in preview.data and b"Wash &amp; Vac" in preview.data
+    resp = admin.get(f"/admin/tenant/{tid}/website.zip")
+    assert resp.mimetype == "application/zip" and "bubbles-car-wash-website.zip" in resp.headers["Content-Disposition"]
+    z = zipfile.ZipFile(io.BytesIO(resp.data))
+    assert sorted(z.namelist()) == ["fonts/archivo.woff2", "icon.svg", "index.html", "style.css", "theme.css"]
+    page = z.read("index.html").decode()
+    assert f'href="http://localhost/book/{SLUG}"' in page and 'href="style.css"' in page and "/static/" not in page
+    assert "url(fonts/archivo.woff2)" in z.read("style.css").decode()
+    admin.post(f"/admin/tenant/{tid}/domain", {"domain": "book.bubbles.co.za"})
+    page = zipfile.ZipFile(io.BytesIO(admin.get(f"/admin/tenant/{tid}/website.zip").data)).read("index.html").decode()
+    assert f'href="{HOST}/"' in page and f'href="{HOST}/login"' in page
+    owner.post("/app/settings/theme", {"theme": "carbon"})
+    names = zipfile.ZipFile(io.BytesIO(admin.get(f"/admin/tenant/{tid}/website.zip").data)).namelist()
+    assert "fonts/barlow-400.woff2" in names and "fonts/barlow-condensed-700.woff2" in names
+    assert "fonts/inter.woff2" not in names
 
 
 # --- licence disc scanner -------------------------------------------------------
@@ -826,6 +909,11 @@ def test_scanned_disc_fills_the_new_car_form(owner, db):
 def test_landing_has_no_load_shedding_promise(client):
     page = client.get("/").data.lower()
     assert b"load shedding" not in page and b"in the cloud" not in page and b"licence disc" in page
+
+
+def test_landing_prices(client):
+    page = client.get("/").data
+    assert b"R349" in page and b"Free when you pay a year upfront" in page and b"Price on request" in page
 
 
 def test_old_database_drops_washer_pay(tmp_path):

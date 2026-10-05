@@ -40,22 +40,23 @@ def _start_session(tenant_id: int):
 
 
 @bp.before_request
-def site_mode():
-    if current_app.config["SITE_MODE"]:
-        g.site = site.site_tenant()
+def on_car_wash_address():
+    """On a car wash's own address: its name and look, and no sign-up or demo."""
+    if g.host:
+        g.site = g.host
+        if request.endpoint in ("public.signup", "public.demo", "public.theme"):
+            abort(404)
 
 
 @bp.get("/")
 def landing():
-    if current_app.config["SITE_MODE"]:
-        return site.render_page(g.site) if g.site else redirect(url_for(".signup"))
+    if g.host:
+        return site.render_page(g.host)
     return render_template("public/landing.html")
 
 
 @bp.route("/signup", methods=["GET", "POST"])
 def signup():
-    if current_app.config["SITE_MODE"] and g.site:
-        abort(404)  # this installation already has its car wash
     form = {}
     if request.method == "POST":
         form = request.form
@@ -106,6 +107,8 @@ def login():
         tenant = get_db().execute(
             "SELECT * FROM tenants WHERE email = ? AND is_demo = 0", (email,)
         ).fetchone()
+        if g.host and tenant and tenant["id"] != g.host["id"]:  # a car wash's address is for its owner only
+            tenant = None
         if tenant and check_password_hash(tenant["password_hash"] or "", request.form.get("password", "")):
             if tenant["is_disabled"]:
                 flash("This account is paused. Please contact support.", "error")
@@ -127,8 +130,6 @@ def logout():
 
 @bp.post("/demo")
 def demo():
-    if current_app.config["SITE_MODE"]:
-        abort(404)
     db = get_db()
 
     def go(tenant_id):
@@ -172,6 +173,14 @@ def privacy():
 @bp.get("/robots.txt")
 def robots():
     return Response("User-agent: *\nDisallow: /app\nDisallow: /admin\nDisallow: /demo\n", mimetype="text/plain")
+
+
+@bp.get("/tls-check")
+def tls_check():
+    """Caddy asks before it gets an HTTPS certificate for a car wash's own address."""
+    domain = request.args.get("domain", "").lower()
+    found = domain and get_db().execute("SELECT 1 FROM tenants WHERE domain = ?", (domain,)).fetchone()
+    return ("ok", 200) if found else ("unknown", 404)
 
 
 @bp.get("/healthz")
