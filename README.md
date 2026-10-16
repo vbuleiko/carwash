@@ -106,19 +106,19 @@ sudo docker compose up -d --build
 
 Чтобы копии уходили ещё и в Cloud Storage, добавь в `.env` `BACKUP_BUCKET=gs://имя-бакета`. У сервисного аккаунта виртуалки должно быть право записи в бакет.
 
-**Письма тебе** (контейнер `notify`): о каждой новой регистрации — в течение минуты, и каждый день в 22:00 по Йоханнесбургу — сводка за сутки: новые мойки, ошибки сервера (где и сколько раз, с трассировкой), по каждой мойке машины, выручка, Ready, Collected, отмены, записи, последний заход, сколько дней триала осталось, число демо. Отправка — через [Resend](https://resend.com) (бесплатно до 3 000 писем в месяц) или любой другой SMTP.
+**Письма тебе** (контейнер `notify`): о каждой новой регистрации — в течение минуты, и каждый день в 22:00 по Йоханнесбургу — сводка за сутки: новые мойки, ошибки сервера (где и сколько раз, с трассировкой), по каждой мойке машины, выручка, Ready, Collected, отмены, записи, последний заход, сколько дней триала осталось, число демо. Отправка — через Gmail (бесплатно) с **отдельного** аккаунта: его пароль приложения лежит на сервере и открывает весь ящик, поэтому основной Gmail сюда не ставь. Письма идут на `admin@carwasheasy.co.za`, ImprovMX пересылает их в основной Gmail. Подойдёт и любой другой SMTP (Resend, ImprovMX Premium) — это только строки в `.env`.
 
-1. На resend.com: **Domains → Add domain** → `carwasheasy.co.za`. Resend покажет 3 записи (DKIM `resend._domainkey`, MX и TXT для `send`). Добавь их в GoDaddy → DNS → **Add New Record**, существующие записи не трогай. Нажми **Verify**.
-2. **API Keys → Create API key** (Sending access), скопируй ключ `re_...`.
+1. В отдельном Gmail: **Google Account → Security → 2-Step Verification** — включить (без неё страница паролей пишет «not available for your account»).
+2. myaccount.google.com/apppasswords → имя `CarWashEasy` → **Create**, скопируй 16 букв без пробелов.
 3. В `.env` на виртуалке:
    ```
    NOTIFY_EMAIL=admin@carwasheasy.co.za
-   MAIL_FROM=CarWashEasy <noreply@carwasheasy.co.za>
-   SMTP_HOST=smtp.resend.com
+   SMTP_HOST=smtp.gmail.com
    SMTP_PORT=587
-   SMTP_USER=resend
-   SMTP_PASSWORD=re_...
+   SMTP_USER=отдельный@gmail.com
+   SMTP_PASSWORD=пароль приложения
    ```
+   Письма уходят от `SMTP_USER`. Не ставь `MAIL_FROM` с адресом `@carwasheasy.co.za`: Gmail его не подпишет, и из-за DMARC домена (`p=quarantine`) письмо попадёт в спам.
 4. `sudo docker compose up -d`, проверка — отчёт сразу: `sudo docker compose exec notify flask --app app report`. Если письмо не пришло — `sudo docker compose logs notify`.
 
 Пустой `SMTP_PASSWORD` — писем нет, остальное работает как раньше. Ошибки сервера хранятся 30 дней (таблица `errors`).
@@ -136,8 +136,8 @@ sudo docker compose up -d --build
 | `TRIAL_DAYS` | длина триала, по умолчанию 30 |
 | `APP_NAME` | название продукта, по умолчанию `CarWashEasy` |
 | `NOTIFY_EMAIL` | куда слать письма о регистрациях и отчёт в 22:00 |
-| `MAIL_FROM` | от кого письма, по умолчанию `<APP_NAME> <noreply@<DOMAIN>>` |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | почтовый сервер для отправки (Resend: `smtp.resend.com`, `587`, `resend`, API-ключ); пустой пароль = писем нет |
+| `MAIL_FROM` | от кого письма; по умолчанию `SMTP_USER`, если это адрес (Gmail), иначе `noreply@<DOMAIN>` |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | почтовый сервер для отправки (Gmail: `smtp.gmail.com`, `587`, адрес, пароль приложения); пустой пароль = писем нет |
 | `THEME` | оформление по умолчанию для лендинга и новых моек: `carbon` (по умолчанию), `volt`, `midnight`, `noir`, `classic` |
 | `COOKIE_SECURE` | `1` на HTTPS (норма), `0` только для теста по http |
 

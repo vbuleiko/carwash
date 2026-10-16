@@ -33,12 +33,20 @@ def _site_host() -> str:
     return first if "." in first and ":" not in first else ""
 
 
+def _mail_from(app_name: str, smtp_user: str, host: str) -> str:
+    """Gmail sends only as the account that logs in; other services send from the site's domain."""
+    if "@" in smtp_user:
+        return f"{app_name} <{smtp_user}>"
+    return f"{app_name} <noreply@{host}>" if host else ""
+
+
 def create_app(test_config: dict | None = None) -> Flask:
     app = Flask(__name__, static_folder=None)
     data_dir = Path(os.environ.get("DATA_DIR", "data")).resolve()
     if not test_config:
         data_dir.mkdir(parents=True, exist_ok=True)
     app_name, host = os.environ.get("APP_NAME", "CarWashEasy"), _site_host()
+    smtp_user = os.environ.get("SMTP_USER", "")
     app.config.update(
         APP_NAME=app_name,
         SITE_URL=f"https://{host}" if host else "",
@@ -50,10 +58,10 @@ def create_app(test_config: dict | None = None) -> Flask:
         TRIAL_DAYS=int(os.environ.get("TRIAL_DAYS", "30")),
         THEME=os.environ.get("THEME", "carbon"),
         NOTIFY_EMAIL=os.environ.get("NOTIFY_EMAIL", ""),
-        MAIL_FROM=os.environ.get("MAIL_FROM") or (f"{app_name} <noreply@{host}>" if host else ""),
+        MAIL_FROM=os.environ.get("MAIL_FROM") or _mail_from(app_name, smtp_user, host),
         SMTP_HOST=os.environ.get("SMTP_HOST", ""),
         SMTP_PORT=int(os.environ.get("SMTP_PORT") or 587),
-        SMTP_USER=os.environ.get("SMTP_USER", ""),
+        SMTP_USER=smtp_user,
         SMTP_PASSWORD=os.environ.get("SMTP_PASSWORD", ""),
         RATELIMIT_ENABLED=True,
         SESSION_COOKIE_HTTPONLY=True,

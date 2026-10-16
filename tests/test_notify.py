@@ -116,3 +116,10 @@ def test_send_uses_smtp_with_starttls(app, monkeypatch):
 
 def test_no_emails_without_settings(app):
     assert not notify.configured(app.config)
+
+
+def test_mail_goes_from_the_gmail_that_logs_in():
+    from app import _mail_from
+    assert _mail_from("CarWashEasy", "notify@gmail.com", "carwasheasy.co.za") == "CarWashEasy <notify@gmail.com>"
+    assert _mail_from("CarWashEasy", "resend", "carwasheasy.co.za") == "CarWashEasy <noreply@carwasheasy.co.za>"
+    assert _mail_from("CarWashEasy", "", "") == ""
