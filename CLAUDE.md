@@ -1,15 +1,16 @@
-# CLAUDE.md — память проекта Washbook
+# CLAUDE.md — память проекта CarWashEasy
 
 ## Пользователь и как с ним работать
 - Пишет по-русски, отвечать по-русски. На этапе планирования просил отвечать **кратко**.
 - Требование к продукту: «супер минималистично и удобно». Не раздувать функции, лишнее не добавлять без спроса.
 - Бизнес в **ЮАР** (South Africa). Прод: виртуалка **Google Cloud** (Compute Engine), лучше регион `africa-south1` (Йоханнесбург).
+- Наш домен — **carwasheasy.co.za**, регистратор **GoDaddy** (DNS-записи правятся там). На 16.10.2026: A `@` → `34.35.130.97` (Google Cloud, `africa-south1`), сайт работает по HTTPS, `www` тоже; MX-записей нет, `_dmarc` от GoDaddy (`p=quarantine`). Почта `admin@carwasheasy.co.za` — пересылка через **ImprovMX** на Gmail пользователя (MX + SPF `include:spf.improvmx.com` добавлены 16.10.2026). SPF-запись должна оставаться одна: новые `include:` дописывать в неё.
 - Перед большими задачами пользователь хочет, чтобы сначала задавались уточняющие вопросы.
 
 ## Продукт
 Автомойки в ЮАР ведут учёт на бумаге: мойщик записывает на листке марку, номер авто и телефон клиента.
-Washbook заменяет листок: машину записали → назначили мойщиков → нажали **Ready** → в WhatsApp уходит «машина готова».
-Модель — SaaS-подписка для моек. Рабочее название `Washbook` (меняется через `APP_NAME`).
+CarWashEasy заменяет листок: машину записали → назначили мойщиков → нажали **Ready** → в WhatsApp уходит «машина готова».
+Модель — SaaS-подписка для моек. Название **CarWashEasy** (решение 16.10.2026, было Washbook; меняется через `APP_NAME`). Внутренние имена остались старыми, чтобы не трогать живой сервер: файл базы `washbook.db`, бэкапы `washbook-*.db.gz`, ресурсы Google Cloud в README.
 
 ### Решения пользователя по первой версии (сентябрь 2026)
 | Вопрос | Решение |
@@ -24,6 +25,7 @@ Washbook заменяет листок: машину записали → наз
 | Прайс | **Услуга × тип авто** (Hatch/Sedan, SUV, Bakkie, Minibus/Van) |
 | Язык интерфейса и лендинга | **Только английский** |
 | Оплата подписки | **Вручную**: 30 дней триала → оплата по EFT → продление в `/admin` |
+| Письма владельцу сервиса | На `NOTIFY_EMAIL` (`admin@carwasheasy.co.za`) через **Gmail SMTP** с отдельного аккаунта пользователя (пароль приложения; SMTP у ImprovMX только платный, Resend не стали заводить): о новой регистрации сразу + в 22:00 (Йоханнесбург) **сводка по мойкам и ошибкам сервера** «для понимания проблем» (решение 16.10.2026). Не полный журнал действий |
 | Оформление | **5 тёмных тем**, светлой нет: Carbon (по умолчанию), Volt, Midnight, Noir, Classic (прежний дизайн). Владелец выбирает в Settings → Look, посетитель — на лендинге |
 
 ### Что продаём (решения 05.10.2026)
@@ -65,7 +67,7 @@ Washbook заменяет листок: машину записали → наз
 
 ## Архитектура
 Python 3.12 · Flask 3.1 · SQLite (WAL) · серверные Jinja-шаблоны + один `static/app.js` · без внешних CDN.
-Прод: Docker (gunicorn `--preload`, 2 воркера) + Caddy (автоматический HTTPS). Данные в томе `/data` (`washbook.db`, `secret_key`).
+Прод: Docker (gunicorn `--preload`, 2 воркера) + контейнер `notify` (тот же образ, `flask --app app notify`) + Caddy (автоматический HTTPS). Данные в томе `/data` (`washbook.db`, `secret_key`).
 
 ```
 app/__init__.py   create_app(): конфиг из env, ProxyFix, CSRF, CSP/заголовки, фильтры шаблонов
@@ -76,6 +78,7 @@ app/site.py       страница записи для клиентов: /book/<
 app/bookings.py   часы работы, свободные времена, записи, текст подтверждения, адрес страницы (slug)
 app/disc.py       штрихкод license disc (PDF417, текст через `%`) → номер, марка/модель, тип авто; список марок `MAKES`
 app/admin.py      /admin — пароль из ADMIN_PASSWORD (пусто = 404); адрес мойки, типовой сайт (website, website.zip)
+app/notify.py     письма на NOTIFY_EMAIL: регистрация (в течение минуты) и отчёт в 22:00; запись ошибок 500 в `errors`; команды `flask notify` (цикл раз в минуту) и `flask report` (отчёт сейчас)
 app/queries.py    общие запросы: прайс, визиты, лояльность, тексты и ссылки WhatsApp, подписка
 app/reports.py    отчёты, скорость мойщиков, заработок
 app/seed.py       стартовый прайс для новой мойки, генерация демо, очистка демо
@@ -97,6 +100,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 `tenants` → `bookings` (`slot_at` в UTC, `minutes` — время услуг на момент записи, `status`: `new → confirmed → arrived`, плюс `cancelled` и `cancelled_by` = `owner`/`customer`; `visit_id` после «Arrived»; `code` — для ссылки клиента) → `booking_services`. У `services` есть `minutes` (сколько запись держит место).
 Настройки записи в `tenants`: `slug` (уникальный, адрес `/book/<slug>`), `domain` (уникальный, свой адрес мойки, `''` = нет), `address`, `hours` (JSON на 7 дней с понедельника, `''` = по умолчанию), `slot_capacity`, `booking_on`, `msg_booking`, `msg_cancel`.
 Убранные колонки (оплата мойщиков) удаляются из старых баз через `db.DROPPED_COLUMNS`.
+Без `tenant_id`-фильтра (служебные): `errors` (ошибки 500: путь, мойка, `place` = последний кадр в `app/`, трассировка; хранятся 30 дней), `mails_sent` (`signup:<id>:<created_at>`, `report:<дата>` — чтобы письмо не ушло дважды), `rate_hits`.
 
 ### Соглашения (важно соблюдать)
 - **Каждый запрос фильтруется по `tenant_id`.** Для чужих id — 404. Есть тест `test_car_wash_cannot_see_another_car_wash`.
@@ -110,6 +114,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 - Вход: в сессии лежат `tenant_id` **и** `key` = `tenants.session_key`, `owner.load_tenant` сверяет их (id удалённых демо SQLite выдаёт заново — без ключа старая cookie открыла бы чужую мойку). Смена пароля и сброс в `/admin` меняют ключ → остальные устройства выходят. Новый вход — только через `public._start_session` / `queries.session_key`.
 - Числа из форм (id, проценты) проверять `utils.is_number` (только цифры, до 9 знаков), деньги — `parse_money` (до R9 999 999.99). Иначе 500 от SQLite.
 - Лимиты (`security.limiter`) хранятся в таблице `rate_hits`, общие для всех воркеров gunicorn.
+- Письма шлёт только контейнер `notify` (веб-приложение SMTP не трогает): раз в минуту `notify.tick` — регистрации за последние сутки, которых нет в `mails_sent`, и после 22:00 отчёт за сутки 22:00–22:00. Сначала отправка, потом отметка; ошибка SMTP — повтор через минуту. Если отчёт не собрался, уходит письмо с трассировкой. Демо в отчёте — только числом. SMTP с проверкой сертификата (587 STARTTLS, 465 SSL). `MAIL_FROM` по умолчанию = `SMTP_USER`, если это адрес (Gmail шлёт только от себя; адрес `@carwasheasy.co.za` через Gmail не пройдёт DMARC `p=quarantine`), иначе `noreply@<DOMAIN>`. `db.init_db` мигрирует под `BEGIN IMMEDIATE`: оба контейнера стартуют одновременно.
 - Кнопка «Ready» — это `<a href="wa.me..." target="_blank" data-mark="/app/visit/<id>/ready">`. JS отправляет POST и перезагружает доску. В демо (`data-demo="1"` на body) вместо открытия WhatsApp показывается превью.
 - Демо-мойки: `is_demo = 1`, `email = NULL`. Живут 24 ч (`seed.DEMO_HOURS`; старое демо выкидывает на лендинг), не больше 300 одновременно, не больше 10 в час с одного IP. Телефоны в демо случайные, но похожи на настоящие, поэтому ссылки WhatsApp в демо — `#` (`queries.chat_link`), а JS показывает превью.
 - Истёкшая подписка: данные видны, но `/app/new` не пускает.
@@ -134,15 +139,16 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 ```bash
 python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
 ADMIN_PASSWORD=admin flask --app app run --debug   # локально, база в ./data
-pytest -q                                          # 57 тестов
+pytest -q                                          # 63 теста
 ```
 Деплой (подробно в README.md):
 ```bash
 bash deploy/setup-vm.sh && nano .env && sudo docker compose up -d --build
 bash deploy/update.sh   # обновление
 bash deploy/backup.sh   # бэкап SQLite в backups/
+sudo docker compose exec notify flask --app app report   # отчёт на почту прямо сейчас (проверка SMTP)
 ```
-Переменные окружения: `DOMAIN`, `SECRET_KEY`, `ADMIN_PASSWORD`, `SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`, `PRICE_MONTHLY`, `TRIAL_DAYS`, `APP_NAME`, `THEME`, `COOKIE_SECURE`, `DATA_DIR`, `BACKUP_BUCKET` (см. `.env.example`).
+Переменные окружения: `DOMAIN`, `SECRET_KEY`, `ADMIN_PASSWORD`, `SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`, `PRICE_MONTHLY`, `TRIAL_DAYS`, `APP_NAME`, `THEME`, `COOKIE_SECURE`, `DATA_DIR`, `BACKUP_BUCKET`, `NOTIFY_EMAIL`, `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` (см. `.env.example`). `DOMAIN` может содержать несколько адресов через запятую: для ссылок в письмах берётся первый.
 
 ## Особенности облачной песочницы Claude Code
 - Системный `pip install flask` падает (конфликт debian-пакета blinker) → ставить в venv.
@@ -155,7 +161,7 @@ bash deploy/backup.sh   # бэкап SQLite в backups/
 ## Состояние на 30.09.2026
 - Весь код в ветке **`main`** (туда слиты `claude/funny-sagan-72z8o5` — первая версия, `claude/clever-dijkstra-rrd16o` — тёмные темы и исправления, `claude/busy-euler-wezo2c` — онлайн-запись и скан диска). Новую работу начинать от `main`.
 - 30.09.2026 сделан полный разбор ошибок (бэкенд, отчёты/демо, интерфейс) и прогон всех сценариев в браузере во всех 5 темах; найденное исправлено, на исправления есть тесты.
-- Не сделано сознательно: имя в `manifest.webmanifest` зашито (`Washbook`), не берётся из `APP_NAME`.
+- Не сделано сознательно: имя в `manifest.webmanifest` зашито (с 16.10.2026 `CarWashEasy`), не берётся из `APP_NAME`.
 - **Ещё не задеплоено.** Не проверены HTTPS на реальном домене и отправка WhatsApp с реального телефона. Стек docker compose + Caddy проверен по http.
 - `/privacy` — шаблон под POPIA, перед запуском показать юристу.
 - Стартовые цены в `seed.py` условные.
@@ -194,3 +200,9 @@ bash deploy/backup.sh   # бэкап SQLite в backups/
 5. Восстановление пароля по email (сейчас сбрасывается в `/admin`).
 6. Несколько точек у одного владельца.
 7. Способы оплаты и сверка кассы — только если пользователь попросит.
+
+## Письма и новое название (16.10.2026)
+- Слито в **`main`** 16.10.2026 (ветка `claude/vibrant-hopper-rkvzvr`). Новую работу начинать от `main`.
+- Сайт уже работает на `carwasheasy.co.za` (Google Cloud, `africa-south1`, HTTPS настоящий). На сервере в `.env`, скорее всего, стоит `APP_NAME=Washbook` из старого `.env.example` — поменять на `CarWashEasy` руками, и добавить строки почты.
+- Проверено: 63 теста; отправка на локальный SMTP-сервер (STARTTLS с проверкой сертификата, 465, неверный пароль → тайм-аут и повтор); `docker compose` с `app` и `notify` (оба стартуют, `flask report` в контейнере). Настоящий Gmail SMTP и доставка не проверены — нет пароля.
+- Сделать пользователю: в отдельном Gmail включить 2-Step Verification (без неё страница App passwords пишет «not available for your account»), создать пароль приложения, вписать `SMTP_USER`/`SMTP_PASSWORD` в `.env` (сделано), `bash deploy/update.sh`, проверить `flask --app app report`.

@@ -831,10 +831,10 @@ def test_admin_checks_the_address(app, owner, db):
         assert b"an address like" in admin.post(f"/admin/tenant/{tid}/domain", {"domain": bad},
                                                  follow_redirects=True).data
     main = Browser(app.test_client())
-    main.get("/admin/login", base_url="https://washbook.co.za")
-    main.post("/admin/login", {"password": "admin-pass"}, base_url="https://washbook.co.za")
-    assert b"this site&#39;s own address" in main.post(f"/admin/tenant/{tid}/domain", {"domain": "washbook.co.za"},
-                                                     base_url="https://washbook.co.za", follow_redirects=True).data
+    main.get("/admin/login", base_url="https://carwasheasy.co.za")
+    main.post("/admin/login", {"password": "admin-pass"}, base_url="https://carwasheasy.co.za")
+    assert b"this site&#39;s own address" in main.post(f"/admin/tenant/{tid}/domain", {"domain": "carwasheasy.co.za"},
+                                                     base_url="https://carwasheasy.co.za", follow_redirects=True).data
     admin.post(f"/admin/tenant/{tenant_id(db, 'other@example.com')}/domain", {"domain": "book.other.co.za"})
     assert b"already has" in admin.post(f"/admin/tenant/{tid}/domain", {"domain": "book.other.co.za"},
                                         follow_redirects=True).data
