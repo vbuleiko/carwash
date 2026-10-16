@@ -202,7 +202,7 @@ sudo docker compose exec notify flask --app app report   # отчёт на по�
 7. Способы оплаты и сверка кассы — только если пользователь попросит.
 
 ## Письма и новое название (16.10.2026)
-- Ветка `claude/vibrant-hopper-rkvzvr`, в `main` ещё не слито.
+- Слито в **`main`** 16.10.2026 (ветка `claude/vibrant-hopper-rkvzvr`). Новую работу начинать от `main`.
 - Сайт уже работает на `carwasheasy.co.za` (Google Cloud, `africa-south1`, HTTPS настоящий). На сервере в `.env`, скорее всего, стоит `APP_NAME=Washbook` из старого `.env.example` — поменять на `CarWashEasy` руками, и добавить строки почты.
 - Проверено: 63 теста; отправка на локальный SMTP-сервер (STARTTLS с проверкой сертификата, 465, неверный пароль → тайм-аут и повтор); `docker compose` с `app` и `notify` (оба стартуют, `flask report` в контейнере). Настоящий Gmail SMTP и доставка не проверены — нет пароля.
-- Сделать пользователю: в отдельном Gmail включить 2-Step Verification (без неё страница App passwords пишет «not available for your account»), создать пароль приложения, вписать `SMTP_USER`/`SMTP_PASSWORD` в `.env`, слить ветку в `main`, `bash deploy/update.sh`.
+- Сделать пользователю: в отдельном Gmail включить 2-Step Verification (без неё страница App passwords пишет «not available for your account»), создать пароль приложения, вписать `SMTP_USER`/`SMTP_PASSWORD` в `.env` (сделано), `bash deploy/update.sh`, проверить `flask --app app report`.
