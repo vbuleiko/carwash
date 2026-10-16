@@ -209,6 +209,7 @@ sudo docker compose exec notify flask --app app report   # отчёт на по�
 - Google Cloud, проект **`carwasheasy-511812`** (в аккаунте пользователя есть ещё пустой «My First Project» — виртуалки там нет). Имя и зона виртуалки — `gcloud compute instances list`.
 - Зайти: Cloud Shell → `gcloud config set project carwasheasy-511812` → `gcloud compute ssh <имя> --zone=<зона>` (или консоль → Compute Engine → VM instances → SSH). Сам Cloud Shell — другая машина, папки проекта там нет; после переподключения он может сбросить проект.
 - Код в `~/carwash` на виртуалке, `.env` там же (не в git). Обновление: `bash deploy/update.sh` (берёт `main`).
+- Контакты на сайте (подвал лендинга, `/privacy`, «Forgot your password?» на `/login`, «Subscribe on WhatsApp» в настройках) берутся только из `.env`: `SUPPORT_EMAIL=admin@carwasheasy.co.za`, `SUPPORT_WHATSAPP=27687826672` (+27 68 782 6672, решение 16.10.2026). После правки `.env` — `sudo docker compose up -d`.
 
 ## Почта (работает с 16.10.2026)
 - **Приём**: `admin@carwasheasy.co.za` → **ImprovMX** (бесплатный тариф, только пересылка) → основной Gmail пользователя. DNS в GoDaddy: MX `@` → `mx1.improvmx.com` (10) и `mx2.improvmx.com` (20), TXT `@` = `v=spf1 include:spf.improvmx.com ~all`, `_dmarc` от GoDaddy (`p=quarantine`). SPF-запись должна оставаться одна: новые `include:` дописывать в неё.
