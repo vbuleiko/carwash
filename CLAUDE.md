@@ -186,6 +186,14 @@ bash deploy/backup.sh   # бэкап SQLite в backups/
 - Убран `SITE_MODE`, добавлены свой адрес мойки (`tenants.domain`, Caddy on-demand TLS), типовой сайт в `/admin`, лендинг: R349, блок «Your website» (свой сайт — Included, типовой — Free when you pay a year upfront, свой дизайн — Price on request), FAQ про домен и хостинг.
 - Проверено: 57 тестов, Caddy 2.10 вживую (сертификат, отказ, редирект), лендинг и типовой сайт на 390px и 1280px во всех 5 темах без горизонтального скролла, архив сайта на простом веб-сервере (шрифты грузятся, ссылки на `https://book.<домен>/`). Настоящий домен и Let's Encrypt не проверены.
 
+## Опубликовано в интернете (16.10.2026)
+- Работает на **https://carwasheasy.co.za** и `www.` (домен куплен в GoDaddy: A `@` → IP, CNAME `www` → `@`). Сертификат Let's Encrypt Caddy получил сам и сам продлевает. Цель — показывать мойкам демо и давать 30 дней бесплатно.
+- Google Cloud: проект `carwasheasy-511812`, VM `washbook` (`africa-south1-a`, `e2-small`, Debian 12, диск 20 ГБ), статический IP `washbook-ip` = `34.35.130.97`, firewall `washbook-web` (80, 443, 443/udp). Платит пробный кредит Google ($300 на 90 дней, начат около 16.10.2026): **до середины января 2027** решить — Activate full account (платно) или переезд, иначе сервер остановится.
+- На VM (пользователь `v_buleiko1`, вход из Cloud Shell: `gcloud compute ssh washbook --zone=africa-south1-a`): код в `~/carwash` из `main`, клонирован по fine-grained токену GitHub (только чтение, сохранён через `credential.helper store`). Обновление: `cd ~/carwash && bash deploy/update.sh`.
+- `.env`: `DOMAIN="carwasheasy.co.za, www.carwasheasy.co.za"` — оба адреса в одной строке, так Caddy берёт сертификат и для www (проверено `caddy adapt` и `docker compose config`). `ADMIN_PASSWORD` задан, `/admin` работает.
+- **На 16.10.2026 не сделано:** `SUPPORT_WHATSAPP` остался примером `27821234567` (кнопки Contact/Subscribe на лендинге ведут на чужой номер); ночной бэкап в `crontab` не подтверждён; отправка WhatsApp с телефона и скан настоящего диска не проверены.
+- Грабли при запуске: правка `.env` в nano не сохранилась (нужно Ctrl+O → Enter), Caddy просил сертификат для `washbook.co.za`, браузер писал `ERR_SSL_PROTOCOL_ERROR`. Проверять `grep ^DOMAIN .env` и `sudo docker compose logs caddy`. После правки `.env` — `sudo docker compose up -d --force-recreate`.
+
 ## Roadmap (не делать без запроса)
 1. Автоотправка через WhatsApp Cloud API (платно, нужен одобренный шаблон).
 2. ~~Скан лицензионного диска~~ — сделан 02.10.2026.
