@@ -1,4 +1,4 @@
-# Production: the app + Caddy (automatic HTTPS). Settings live in .env
+# Production: the app + emails to you + Caddy (automatic HTTPS). Settings live in .env
 services:
   app:
     build: .
@@ -8,6 +8,19 @@ services:
       DATA_DIR: /data
     volumes:
       - app_data:/data
+
+  # new sign-ups and the daily report at 22:00 to NOTIFY_EMAIL
+  notify:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - app_data:/data
+    command: ["flask", "--app", "app", "notify"]
+    healthcheck:
+      disable: true
 
   caddy:
     image: caddy:2

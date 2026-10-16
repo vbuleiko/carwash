@@ -1,13 +1,14 @@
-"""Washbook — a car wash notebook that texts customers on WhatsApp."""
+"""CarWashEasy — a car wash notebook that texts customers on WhatsApp."""
 import os
+import re
 import secrets
 from datetime import timedelta
 from pathlib import Path
 
-from flask import Flask, g, render_template, request
+from flask import Flask, g, got_request_exception, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from . import admin, assets, bookings, db, disc, owner, public, seed, site, themes
+from . import admin, assets, bookings, db, disc, notify, owner, public, seed, site, themes
 from .security import check_csrf, csrf_token
 from .utils import fmt_minutes, format_phone, money, money_input, to_local, wa_link
 
@@ -26,13 +27,21 @@ def _secret_key(data_dir: Path) -> str:
     return key
 
 
+def _site_host() -> str:
+    """The main address from DOMAIN ("carwasheasy.co.za, www.carwasheasy.co.za" -> the first), '' for a test by IP."""
+    first = re.split(r"[\s,]+", os.environ.get("DOMAIN", "").strip())[0]
+    return first if "." in first and ":" not in first else ""
+
+
 def create_app(test_config: dict | None = None) -> Flask:
     app = Flask(__name__, static_folder=None)
     data_dir = Path(os.environ.get("DATA_DIR", "data")).resolve()
     if not test_config:
         data_dir.mkdir(parents=True, exist_ok=True)
+    app_name, host = os.environ.get("APP_NAME", "CarWashEasy"), _site_host()
     app.config.update(
-        APP_NAME=os.environ.get("APP_NAME", "Washbook"),
+        APP_NAME=app_name,
+        SITE_URL=f"https://{host}" if host else "",
         DATABASE=str(data_dir / "washbook.db"),
         ADMIN_PASSWORD=os.environ.get("ADMIN_PASSWORD", ""),
         PRICE_MONTHLY=os.environ.get("PRICE_MONTHLY", "R349"),
@@ -40,6 +49,12 @@ def create_app(test_config: dict | None = None) -> Flask:
         SUPPORT_EMAIL=os.environ.get("SUPPORT_EMAIL", ""),
         TRIAL_DAYS=int(os.environ.get("TRIAL_DAYS", "30")),
         THEME=os.environ.get("THEME", "carbon"),
+        NOTIFY_EMAIL=os.environ.get("NOTIFY_EMAIL", ""),
+        MAIL_FROM=os.environ.get("MAIL_FROM") or (f"{app_name} <noreply@{host}>" if host else ""),
+        SMTP_HOST=os.environ.get("SMTP_HOST", ""),
+        SMTP_PORT=int(os.environ.get("SMTP_PORT") or 587),
+        SMTP_USER=os.environ.get("SMTP_USER", ""),
+        SMTP_PASSWORD=os.environ.get("SMTP_PASSWORD", ""),
         RATELIMIT_ENABLED=True,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
@@ -73,6 +88,9 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     app.before_request(site.find_host)
     app.before_request(check_csrf)
+    got_request_exception.connect(notify.record_error, app)
+    app.cli.add_command(notify.notify_command)
+    app.cli.add_command(notify.report_command)
     app.jinja_env.globals.update(csrf_token=csrf_token, wa_link=wa_link, car_makes=disc.MAKES)
     app.jinja_env.filters.update(money=money, amount=money_input, phone=format_phone, minutes=fmt_minutes)
 

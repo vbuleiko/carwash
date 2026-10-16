@@ -1,4 +1,4 @@
-# DOMAIN comes from .env: "washbook.co.za" gets a free HTTPS certificate automatically.
+# DOMAIN comes from .env: "carwasheasy.co.za" gets a free HTTPS certificate automatically.
 # For a quick test by IP address use DOMAIN=:80 (and COOKIE_SECURE=0).
 {
 	# car washes' own addresses (book.joeswash.co.za): a certificate on the first visit,

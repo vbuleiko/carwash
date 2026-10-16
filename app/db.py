@@ -159,6 +159,25 @@ CREATE TABLE IF NOT EXISTS rate_hits (
     at  REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS rate_hits_by_key ON rate_hits (key, at);
+
+-- server errors, for the daily report email
+CREATE TABLE IF NOT EXISTS errors (
+    id        INTEGER PRIMARY KEY,
+    at        TEXT NOT NULL,
+    tenant_id INTEGER,
+    method    TEXT NOT NULL,
+    path      TEXT NOT NULL,
+    error     TEXT NOT NULL,                       -- last line: "ValueError: ..."
+    place     TEXT NOT NULL,                       -- "owner.py:250 in new_visit"
+    trace     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS errors_by_at ON errors (at);
+
+-- emails already sent to you: 'signup:<id>:<created_at>', 'report:<YYYY-MM-DD>'
+CREATE TABLE IF NOT EXISTS mails_sent (
+    key     TEXT PRIMARY KEY,
+    sent_at TEXT NOT NULL
+);
 """
 
 # columns added after the first release: CREATE TABLE has them, older databases get an ALTER
@@ -215,6 +234,7 @@ def init_db(path: str):
     conn = connect(path)
     conn.execute("PRAGMA journal_mode = WAL")
     conn.executescript(SCHEMA)
+    conn.execute("BEGIN IMMEDIATE")  # the web app and the notifier start together: one migrates at a time
     for table, column, decl in ADDED_COLUMNS:
         if column not in {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")

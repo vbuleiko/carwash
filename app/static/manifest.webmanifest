@@ -1,6 +1,6 @@
 {
-  "name": "Washbook",
-  "short_name": "Washbook",
+  "name": "CarWashEasy",
+  "short_name": "CarWashEasy",
   "start_url": "/app/",
   "scope": "/",
   "display": "standalone",
