@@ -4,7 +4,7 @@
 - Пишет по-русски, отвечать по-русски. На этапе планирования просил отвечать **кратко**.
 - Требование к продукту: «супер минималистично и удобно». Не раздувать функции, лишнее не добавлять без спроса.
 - Бизнес в **ЮАР** (South Africa). Прод: виртуалка **Google Cloud** (Compute Engine), лучше регион `africa-south1` (Йоханнесбург).
-- Наш домен — **carwasheasy.co.za**, регистратор **GoDaddy** (DNS-записи правятся там). На 16.10.2026: A `@` → `34.35.130.97` (Google Cloud, `africa-south1`), сайт работает по HTTPS, `www` тоже; MX-записей нет, `_dmarc` от GoDaddy (`p=quarantine`). Почта `admin@carwasheasy.co.za` — пересылка через **ImprovMX** на Gmail пользователя (MX + SPF `include:spf.improvmx.com` добавлены 16.10.2026). SPF-запись должна оставаться одна: новые `include:` дописывать в неё.
+- Наш домен — **carwasheasy.co.za**, регистратор **GoDaddy** (DNS-записи правятся там). На 16.10.2026: A `@` → `34.35.130.97` (Google Cloud, `africa-south1`), сайт работает по HTTPS, `www` тоже. Почта — см. раздел «Почта».
 - Перед большими задачами пользователь хочет, чтобы сначала задавались уточняющие вопросы.
 
 ## Продукт
@@ -202,7 +202,18 @@ sudo docker compose exec notify flask --app app report   # отчёт на по�
 7. Способы оплаты и сверка кассы — только если пользователь попросит.
 
 ## Письма и новое название (16.10.2026)
-- Слито в **`main`** 16.10.2026 (ветка `claude/vibrant-hopper-rkvzvr`). Новую работу начинать от `main`.
-- Сайт уже работает на `carwasheasy.co.za` (Google Cloud, `africa-south1`, HTTPS настоящий). На сервере в `.env`, скорее всего, стоит `APP_NAME=Washbook` из старого `.env.example` — поменять на `CarWashEasy` руками, и добавить строки почты.
-- Проверено: 63 теста; отправка на локальный SMTP-сервер (STARTTLS с проверкой сертификата, 465, неверный пароль → тайм-аут и повтор); `docker compose` с `app` и `notify` (оба стартуют, `flask report` в контейнере). Настоящий Gmail SMTP и доставка не проверены — нет пароля.
-- Сделать пользователю: в отдельном Gmail включить 2-Step Verification (без неё страница App passwords пишет «not available for your account»), создать пароль приложения, вписать `SMTP_USER`/`SMTP_PASSWORD` в `.env` (сделано), `bash deploy/update.sh`, проверить `flask --app app report`.
+- Слито в **`main`** 16.10.2026 ([vbuleiko/carwash#1](https://github.com/vbuleiko/carwash/pull/1)) и **задеплоено**: на проде `APP_NAME=CarWashEasy`, контейнер `notify` работает, `flask report` прислал письмо (пользователь подтвердил). Новую работу начинать от `main`.
+- Проверено до деплоя: 63 теста; локальный SMTP-сервер (STARTTLS с проверкой сертификата, 465, неверный пароль → тайм-аут и повтор); `docker compose` с `app` и `notify`.
+
+## Сервер (на 16.10.2026)
+- Google Cloud, проект **`carwasheasy-511812`** (в аккаунте пользователя есть ещё пустой «My First Project» — виртуалки там нет). Имя и зона виртуалки — `gcloud compute instances list`.
+- Зайти: Cloud Shell → `gcloud config set project carwasheasy-511812` → `gcloud compute ssh <имя> --zone=<зона>` (или консоль → Compute Engine → VM instances → SSH). Сам Cloud Shell — другая машина, папки проекта там нет; после переподключения он может сбросить проект.
+- Код в `~/carwash` на виртуалке, `.env` там же (не в git). Обновление: `bash deploy/update.sh` (берёт `main`).
+
+## Почта (работает с 16.10.2026)
+- **Приём**: `admin@carwasheasy.co.za` → **ImprovMX** (бесплатный тариф, только пересылка) → основной Gmail пользователя. DNS в GoDaddy: MX `@` → `mx1.improvmx.com` (10) и `mx2.improvmx.com` (20), TXT `@` = `v=spf1 include:spf.improvmx.com ~all`, `_dmarc` от GoDaddy (`p=quarantine`). SPF-запись должна оставаться одна: новые `include:` дописывать в неё.
+- **Отправка** (только контейнер `notify`, письма о регистрациях и отчёт в 22:00): `smtp.gmail.com:587`, STARTTLS, вход отдельным Gmail **v.buleiko1@gmail.com** по **паролю приложения** (у аккаунта включена 2-Step Verification — без неё страница App passwords пишет «not available for your account»). Отправитель = `SMTP_USER` (`MAIL_FROM` не задан), получатель `NOTIFY_EMAIL=admin@carwasheasy.co.za` → ImprovMX → основной Gmail.
+- В `.env` на сервере: `NOTIFY_EMAIL`, `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_USER=v.buleiko1@gmail.com`, `SMTP_PASSWORD` (16 букв без пробелов). Пароль только там — в чат и в репозиторий не просить и не писать.
+- Почему так: SMTP у ImprovMX только на Premium ($9/мес), Resend заводить не стали. Отправлять от `@carwasheasy.co.za` через Gmail нельзя: Gmail не подпишет домен, DMARC `p=quarantine` отправит письмо в спам. Свой основной Gmail отправителем не ставить: письмо, вернувшееся через пересылку в тот же ящик, Gmail прячет в «Отправленные».
+- Проверка: `sudo docker compose exec notify flask --app app report` → «Sent to admin@carwasheasy.co.za.»; проблемы — `sudo docker compose logs notify --tail 30`. `535 Username and Password not accepted` = пароль приложения неверный или отозван (он слетает при смене пароля Google-аккаунта).
+- Не настроено: ответы от имени `admin@` из Gmail («Send mail as»). Через Gmail SMTP такие письма тоже не пройдут DMARC домена — если понадобится писать владельцам моек с `admin@`, нужен SMTP с подписью домена (ImprovMX Premium или Resend + DKIM в GoDaddy).
