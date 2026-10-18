@@ -133,7 +133,9 @@ sudo docker compose up -d --build
 | `SUPPORT_WHATSAPP` | твой номер, цифры с кодом страны (кнопки «Contact / Subscribe») |
 | `SUPPORT_EMAIL` | почта поддержки (необязательно) |
 | `PRICE_MONTHLY` | цена на лендинге, по умолчанию `R349` |
+| `PRICE_YEARLY` | цена за год (с типовым сайтом), по умолчанию `R3,990` |
 | `TRIAL_DAYS` | длина триала, по умолчанию 30 |
+| `PILOT_DAYS` | бесплатный план за обратную связь (`/signup?plan=pilot`), по умолчанию 60 дней |
 | `APP_NAME` | название продукта, по умолчанию `CarWashEasy` |
 | `NOTIFY_EMAIL` | куда слать письма о регистрациях и отчёт в 22:00 |
 | `MAIL_FROM` | от кого письма; по умолчанию `SMTP_USER`, если это адрес (Gmail), иначе `noreply@<DOMAIN>` |

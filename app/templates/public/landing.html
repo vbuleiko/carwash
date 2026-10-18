@@ -128,18 +128,42 @@
 
   <section class="pricing" id="pricing">
     <h2>Simple pricing</h2>
-    <div class="price-card">
-      <p class="price"><b>{{ config.PRICE_MONTHLY }}</b> / month</p>
-      <p class="muted">per car wash · cancel any time</p>
-      <ul>
-        <li>{{ icon('check') }} Unlimited cars and customers</li>
-        <li>{{ icon('check') }} WhatsApp messages from your own number — no per-message fees</li>
-        <li>{{ icon('check') }} Licence disc scanner — no typing plates</li>
-        <li>{{ icon('check') }} Online booking page for your customers</li>
-        <li>{{ icon('check') }} Staff speed, reports, loyalty</li>
-        <li>{{ icon('check') }} Help on WhatsApp when you need it</li>
-      </ul>
-      <a class="btn primary big wide" href="{{ url_for('public.signup') }}">Start {{ config.TRIAL_DAYS }} days free</a>
+    <div class="plans">
+      <div class="price-card">
+        <p class="plan-name">Pilot</p>
+        <p class="price"><b>R0</b> / {{ config.PILOT_DAYS }} days</p>
+        <p class="muted">per car wash · for your feedback</p>
+        <ul>
+          <li>{{ icon('check') }} Everything in Monthly, free</li>
+          <li>{{ icon('check') }} No card needed</li>
+          <li>{{ icon('check') }} In return, tell us what works and what to improve</li>
+        </ul>
+        <a class="btn big wide" href="{{ url_for('public.signup', plan='pilot') }}">Join the pilot</a>
+      </div>
+      <div class="price-card main">
+        <p class="plan-name">Monthly</p>
+        <p class="price"><b>{{ config.PRICE_MONTHLY }}</b> / month</p>
+        <p class="muted">per car wash · cancel any time</p>
+        <ul>
+          <li>{{ icon('check') }} Unlimited cars and customers</li>
+          <li>{{ icon('check') }} WhatsApp messages from your own number — no per-message fees</li>
+          <li>{{ icon('check') }} Licence disc scanner — no typing plates</li>
+          <li>{{ icon('check') }} Online booking page for your customers</li>
+          <li>{{ icon('check') }} Staff speed, reports, loyalty</li>
+          <li>{{ icon('check') }} Help on WhatsApp when you need it</li>
+        </ul>
+        <a class="btn primary big wide" href="{{ url_for('public.signup') }}">Start {{ config.TRIAL_DAYS }} days free</a>
+      </div>
+      <div class="price-card">
+        <p class="plan-name">Yearly</p>
+        <p class="price"><b>{{ config.PRICE_YEARLY }}</b> / year</p>
+        <p class="muted">per car wash · paid once a year</p>
+        <ul>
+          <li>{{ icon('check') }} Everything in Monthly</li>
+          <li>{{ icon('check') }} Ready-made website in your look — free</li>
+        </ul>
+        <a class="btn big wide" href="{{ url_for('public.signup') }}">Start {{ config.TRIAL_DAYS }} days free</a>
+      </div>
     </div>
 
     <div class="site-options" id="website">
@@ -170,7 +194,8 @@
     <details><summary>Is my customers' data safe?</summary><p>Your data is only visible to you. We never sell it or message your customers ourselves. See our <a href="{{ url_for('public.privacy') }}">privacy policy</a>.</p></details>
     <details><summary>Can the booking page be on my own website?</summary><p>Yes. Add a “Book online” button to your website, and your booking page and app open on your own address, like book.yourwash.co.za. You add one record in your domain settings — we'll send you the steps.</p></details>
     <details><summary>Do you host my website?</summary><p>No, your domain and hosting stay yours. We give you the website files ready to upload. Bookings and the app run on our servers, so there's nothing to install or update.</p></details>
-    <details><summary>How do I pay?</summary><p>By EFT after your free trial — monthly, or a year upfront with the ready-made website included. We'll remind you a few days before the trial ends.</p></details>
+    <details><summary>Paper works just fine for me. Why would I need this?</summary><p>If you're not planning to grow and don't look at least a year ahead, you probably don't. But if you want to grow and open new locations, it's much harder without a good, simple system.</p></details>
+    <details><summary>How do I pay?</summary><p>By EFT after your free trial — {{ config.PRICE_MONTHLY }} a month, or {{ config.PRICE_YEARLY }} for a year upfront with the ready-made website included. We'll remind you a few days before the trial ends.</p></details>
   </section>
 
   <section class="final-cta">
