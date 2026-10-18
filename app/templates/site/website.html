@@ -20,10 +20,11 @@
 </head>
 <body class="site website">
 {% if preview %}{% include "site/_top.html" %}{% endif %}
-<main class="book">
-  <header class="book-hero">
+<main class="web">
+  <header class="book-hero web-hero">
     <p class="eyebrow">Car wash{{ ' · ' ~ t.city if t.city }}</p>
     <h1>{{ t.name }}</h1>
+    <p class="lead">Book your wash online in a minute. We confirm on WhatsApp.</p>
     {% if place %}<div class="book-meta"><span>{{ icon('pin') }} {{ place }}</span></div>{% endif %}
     <div class="cta">
       <a class="btn primary big" href="{{ book }}">{{ icon('calendar') }} Book online</a>
@@ -32,27 +33,27 @@
   </header>
 
   {% if services %}
-  <section class="step">
+  <section class="how">
     <h2>Services</h2>
-    <ul class="ticks">
-      {% for s in services %}<li>{{ icon('check') }} {{ s.name }}</li>{% endfor %}
+    <ul class="web-services">
+      {% for s in services %}<li class="feature">{{ icon('check') }} {{ s.name }}</li>{% endfor %}
     </ul>
-    <a href="{{ book }}">See prices and free times →</a>
+    <p class="web-more"><a href="{{ book }}">See prices and free times →</a></p>
   </section>
   {% endif %}
 
-  <section class="step">
+  <section class="how">
     <h2>Book in a minute</h2>
-    <ol class="web-steps">
-      <li><span class="step-n">1</span><span><b>Pick your car and services.</b> Prices show as you go.</span></li>
-      <li><span class="step-n">2</span><span><b>Choose a day and a time.</b> Only free times are shown.</span></li>
-      <li><span class="step-n">3</span><span><b>We confirm on WhatsApp.</b> You pay at the car wash.</span></li>
+    <ol class="steps">
+      <li><b>Pick your car and services.</b> Prices show as you go.</li>
+      <li><b>Choose a day and a time.</b> Only free times are shown.</li>
+      <li><b>We confirm on WhatsApp.</b> You pay at the car wash.</li>
     </ol>
-    <a class="btn primary big" href="{{ book }}">Book online</a>
+    <div class="cta cta-center"><a class="btn primary big" href="{{ book }}">{{ icon('calendar') }} Book online</a></div>
   </section>
 
   {% if place %}
-  <section class="step">
+  <section class="how web-find">
     <h2>Find us</h2>
     <p>{{ place }}</p>
     <a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query={{ map_query|urlencode }}" target="_blank" rel="noopener">{{ icon('pin') }} Open in Google Maps</a>
