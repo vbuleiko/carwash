@@ -559,4 +559,8 @@ body.site { background: var(--bg); }
 .admin-wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px 60px; }
 .tenant-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; margin-bottom: 6px; }
 .tenant .row { margin-top: 10px; margin-bottom: 0; }
+.tenant-head .pill { white-space: nowrap; }
 .tenant input[type=date] { width: auto; min-height: 42px; }
+.hand-over { flex-wrap: wrap; }
+.hand-over input { flex: 1 1 200px; width: auto; min-height: 42px; }
+.hand-over select { width: auto; min-height: 42px; }

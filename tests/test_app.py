@@ -6,6 +6,7 @@ import brotli
 
 from app import queries, reports, seed
 from app.utils import (
+    DEFAULT_TZ,
     fill_template,
     money,
     normalize_phone,
@@ -867,6 +868,63 @@ def test_ready_made_website_for_their_hosting(app, owner, db):
     names = zipfile.ZipFile(io.BytesIO(admin.get(f"/admin/tenant/{tid}/website.zip").data)).namelist()
     assert "fonts/barlow-400.woff2" in names and "fonts/barlow-condensed-700.woff2" in names
     assert "fonts/inter.woff2" not in names
+
+
+BAY = "bay-crescent-carwash"
+
+
+def add_prospects(admin, lines, **kw):
+    return admin.post("/admin/prospects", {"lines": lines}, **kw)
+
+
+def test_website_for_a_car_wash_that_has_not_signed_up(app, db):
+    from urllib.parse import unquote
+    admin = admin_login(app)
+    resp = add_prospects(admin, "Bay Crescent Carwash | Lancaster Rd, Gordon's Bay | Gordon's Bay | 082 111 2222\n\n"
+                                "Water Worx | | Strand |\n | Main Rd\nBad Number | Main Rd | Strand | 123",
+                         follow_redirects=True)
+    assert b"Added 2: Bay Crescent Carwash, Water Worx." in resp.data and b"Skipped: Bad Number" in resp.data
+    assert b"already here" in add_prospects(admin, "Bay Crescent Carwash", follow_redirects=True).data
+    t = db.execute("SELECT * FROM tenants WHERE slug = ?", (BAY,)).fetchone()
+    assert t["email"] is None and t["address"] == "Lancaster Rd, Gordon's Bay" and t["phone"] == "27821112222"
+    assert t["city"] == "Gordon's Bay" and ids(db, "services", t["id"])
+    assert f"http://localhost/site/{BAY}".encode() in admin.get("/admin/").data
+
+    visitor = Browser(app.test_client())
+    page = visitor.get(f"/site/{BAY}")
+    assert page.status_code == 200 and b"Your new website by CarWashEasy" in page.data and b"noindex" in page.data
+    assert b"Wash &amp; Vac" in page.data and f'href="http://localhost/book/{BAY}"'.encode() in page.data
+    assert b"themes/carbon.css" in page.data and b'href="https://wa.me/27821112222?text=' in page.data
+    resp = visitor.post("/theme", {"theme": "volt", "next": f"/site/{BAY}"})
+    assert resp.location == f"/site/{BAY}"
+    assert b"themes/volt.css" in visitor.get(f"/site/{BAY}").data
+    booking = visitor.get(f"/book/{BAY}").data
+    assert b"themes/volt.css" in booking and b"Your new booking page" in booking and b"noindex" in booking
+    pick = unquote(visitor.get(f"/site/{BAY}/pick").location)
+    assert pick.startswith("https://wa.me/27820000000?text=") and "Bay Crescent Carwash" in pick and "Volt" in pick
+    assert db.execute("SELECT theme FROM tenants WHERE id = ?", (t["id"],)).fetchone()[0] == ""
+
+    signup(Browser(app.test_client()))
+    assert visitor.get(f"/site/{SLUG}").status_code == 404  # a car wash that signed up has its own website
+    assert b"themes/carbon.css" in visitor.get(f"/book/{SLUG}").data  # and its own look
+    assert visitor.get("/site/nobody").status_code == 404
+
+    assert b"Enter the owner" in admin.post(f"/admin/tenant/{t['id']}/owner", {"email": "joe"},
+                                            follow_redirects=True).data
+    assert b"already has an account" in admin.post(f"/admin/tenant/{t['id']}/owner", {"email": "owner@example.com"},
+                                                   follow_redirects=True).data
+    resp = admin.post(f"/admin/tenant/{t['id']}/owner", {"email": "Joe@Bay.co.za", "theme": "volt"},
+                      follow_redirects=True)
+    password = re.search(rb"password: (\S+) ", resp.data).group(1).decode()
+    t = db.execute("SELECT * FROM tenants WHERE id = ?", (t["id"],)).fetchone()
+    assert t["email"] == "joe@bay.co.za" and t["theme"] == "volt" and t["plan"] == "trial"
+    assert t["paid_until"] == (local_today(zone(DEFAULT_TZ)) + timedelta(days=30)).isoformat()
+    assert visitor.get(f"/site/{BAY}").status_code == 404
+    joe = Browser(app.test_client())
+    joe.get("/login")
+    assert joe.post("/login", {"email": "joe@bay.co.za", "password": password}).location.endswith("/app/")
+    assert b"already has an owner" in admin.post(f"/admin/tenant/{t['id']}/owner", {"email": "x@bay.co.za"},
+                                                 follow_redirects=True).data
 
 
 # --- licence disc scanner -------------------------------------------------------

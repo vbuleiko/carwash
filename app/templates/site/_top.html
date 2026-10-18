@@ -1,14 +1,22 @@
-{# shared by the booking page and the "booked" page; needs the values from site._common #}
-{% if owner_view %}
+{# shared by the booking page and the "booked" page (values from site._common), and the website we make for a car wash #}
+{% if owner_view or prospect %}
 <div class="owner-bar">
+  {% if prospect %}
+  <span>Your new {{ 'website' if preview else 'booking page' }} by {{ config.APP_NAME }}. Try the looks:</span>
+  {% else %}
   <span>{{ 'Demo — this is the page your customers see.' if t.is_demo else 'Your booking page, as customers see it.' }}</span>
-  <form method="post" action="{{ url_for('owner.settings_theme') }}" class="look-dots" aria-label="Look" data-look>
+  {% endif %}
+  <form method="post" action="{{ url_for('public.theme') if prospect else url_for('owner.settings_theme') }}" class="look-dots" aria-label="Look" data-look>
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <input type="hidden" name="next" value="{{ request.path }}">
     {% for key, th in themes.items() %}
     <button name="theme" value="{{ key }}" class="look-dot" data-css="{{ theme_css(key) }}" data-bg="{{ th.bg }}" style="--dot-bg: {{ th.bg }}; --dot: {{ th.accent }}" title="{{ th.name }}" aria-label="{{ th.name }} look" aria-pressed="{{ 'true' if key == theme else 'false' }}"></button>
     {% endfor %}
   </form>
+  {% if not prospect %}
   <a href="{{ url_for('owner.booking_list') }}">Open app →</a>
+  {% elif config.SUPPORT_WHATSAPP %}
+  <a href="{{ url_for('public.website_pick', slug=t.slug) }}" target="_blank" rel="noopener">I like this look →</a>
+  {% endif %}
 </div>
 {% endif %}

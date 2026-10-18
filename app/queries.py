@@ -23,6 +23,11 @@ STATUS_LABELS = {
 
 # --- tenant -------------------------------------------------------------------
 
+def is_prospect(tenant) -> bool:
+    """A car wash we set up in /admin to show its owner a website: nobody can log in to it yet."""
+    return not tenant["is_demo"] and not tenant["email"]
+
+
 def subscription(tenant, today: date) -> dict:
     if tenant["is_demo"]:
         return {"active": True, "demo": True, "days_left": None, "plan": "demo", "until": None}

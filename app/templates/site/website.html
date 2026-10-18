@@ -1,4 +1,5 @@
-{# the ready-made website a car wash puts on its own hosting: admin → Website (preview) and Download #}
+{# the ready-made website a car wash puts on its own hosting: admin → Website (preview) and Download;
+   preview = the same page on our server for a car wash that hasn't signed up, with the look switch #}
 {% from "_macros.html" import icon %}
 <!doctype html>
 <html lang="en">
@@ -10,10 +11,15 @@
   <meta name="theme-color" content="{{ themes[look].bg }}">
   <link rel="icon" href="{{ asset('icon.svg') }}" type="image/svg+xml">
   <link rel="stylesheet" href="{{ asset('style.css') }}">
-  {% if look != 'classic' %}<link rel="stylesheet" href="{{ asset('theme.css') }}">{% endif %}
+  {% if look != 'classic' %}<link rel="stylesheet" href="{{ asset('theme.css') }}" id="look-css">{% endif %}
   {% for font in themes[look].fonts %}<link rel="preload" href="{{ asset('fonts/' ~ font ~ '.woff2') }}" as="font" type="font/woff2" crossorigin>{% endfor %}
+  {% if preview %}
+  <meta name="robots" content="noindex">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  {% endif %}
 </head>
 <body class="site website">
+{% if preview %}{% include "site/_top.html" %}{% endif %}
 <main class="book">
   <header class="book-hero">
     <p class="eyebrow">Car wash{{ ' · ' ~ t.city if t.city }}</p>
