@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     slug          TEXT NOT NULL DEFAULT '',        -- booking page address: /book/<slug>
     domain        TEXT NOT NULL DEFAULT '',        -- its own address, e.g. book.joeswash.co.za; '' = none
     address       TEXT NOT NULL DEFAULT '',
+    maps_url      TEXT NOT NULL DEFAULT '',        -- its own place on Google Maps; '' = search by name and address
     hours         TEXT NOT NULL DEFAULT '',        -- JSON, 7 days from Monday: ["08:00", "17:00"] or null; '' = default
     slot_capacity INTEGER NOT NULL DEFAULT 2,      -- cars that can be booked for the same time
     booking_on    INTEGER NOT NULL DEFAULT 1,
@@ -192,6 +193,7 @@ ADDED_COLUMNS = [
     ("tenants", "msg_booking", "TEXT NOT NULL DEFAULT ''"),
     ("tenants", "msg_cancel", "TEXT NOT NULL DEFAULT ''"),
     ("tenants", "domain", "TEXT NOT NULL DEFAULT ''"),
+    ("tenants", "maps_url", "TEXT NOT NULL DEFAULT ''"),
     ("services", "minutes", "INTEGER NOT NULL DEFAULT 30"),
     ("bookings", "minutes", "INTEGER NOT NULL DEFAULT 30"),
     ("bookings", "cancelled_by", "TEXT NOT NULL DEFAULT ''"),

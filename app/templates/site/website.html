@@ -56,7 +56,7 @@
   <section class="how web-find">
     <h2>Find us</h2>
     <p>{{ place }}</p>
-    <a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query={{ map_query|urlencode }}" target="_blank" rel="noopener">{{ icon('pin') }} Open in Google Maps</a>
+    <a class="btn" href="{{ map_url }}" target="_blank" rel="noopener">{{ icon('pin') }} Open in Google Maps</a>
   </section>
   {% endif %}
 </main>

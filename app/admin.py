@@ -108,29 +108,45 @@ def _tenant_or_404(tenant_id: int):
     return tenant
 
 
+MAPS_RE = re.compile(r"https://(maps\.app\.goo\.gl|goo\.gl/maps|(www\.)?google\.[a-z.]+/maps|maps\.google\.[a-z.]+)[/?]\S*")
+
+
 @bp.post("/prospects")
 def add_prospects():
-    """Car washes that haven't signed up, one per line: Name | Address | City | WhatsApp.
-    Each gets the starter price list, a booking page and a website to show its owner."""
+    """Car washes that haven't signed up, one per line: Name | Address | City | WhatsApp | Google Maps link.
+    Each gets the starter price list, a booking page and a website to show its owner.
+    A line with the name of one already here updates it (only the fields that aren't empty)."""
     db = get_db()
-    added, skipped = [], []
+    added, updated, skipped = [], [], []
     for line in request.form.get("lines", "").splitlines()[:50]:
         if not line.strip():
             continue
-        name, address, city, phone = ([part.strip() for part in line.split("|")] + [""] * 3)[:4]
+        name, address, city, phone, maps = ([part.strip() for part in line.split("|")] + [""] * 4)[:5]
+        name, address, city = name[:60], address[:120], city[:60]
         phone = normalize_phone(phone, "27")
         if not name or (phone and not phone_is_valid(phone)):
             skipped.append(f"{line.strip()} (needs a name and a valid WhatsApp number)")
-        elif db.execute("SELECT 1 FROM tenants WHERE name = ? AND is_demo = 0 AND email IS NULL",
-                        (name[:60],)).fetchone():
-            skipped.append(f"{name} (already here)")
-        else:
-            with db:
-                seed.create_tenant(db, name=name[:60], phone=phone, city=city[:60], address=address[:120],
-                                   trial_days=PROSPECT_DAYS)
-            added.append(name)
+            continue
+        if maps and not MAPS_RE.fullmatch(maps):
+            skipped.append(f"{name} (the Google Maps link should start with https://maps.app.goo.gl/ "
+                           "or https://www.google.com/maps)")
+            continue
+        here = db.execute("SELECT * FROM tenants WHERE name = ? AND is_demo = 0 AND email IS NULL", (name,)).fetchone()
+        with db:
+            if here:
+                db.execute("UPDATE tenants SET address = ?, city = ?, phone = ?, maps_url = ? WHERE id = ?",
+                           (address or here["address"], city or here["city"], phone or here["phone"],
+                            maps or here["maps_url"], here["id"]))
+                updated.append(name)
+            else:
+                tid = seed.create_tenant(db, name=name, phone=phone, city=city, address=address,
+                                         trial_days=PROSPECT_DAYS)
+                db.execute("UPDATE tenants SET maps_url = ? WHERE id = ?", (maps, tid))
+                added.append(name)
     if added:
         flash(f"Added {len(added)}: {', '.join(added)}.")
+    if updated:
+        flash(f"Updated {len(updated)}: {', '.join(updated)}.")
     for line in skipped:
         flash(f"Skipped: {line}", "error")
     return redirect(url_for("admin.index", _anchor="prospects"))
