@@ -363,7 +363,11 @@ body.site { background: var(--bg); }
 .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .feature { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
 .feature p { color: var(--muted); margin: 0; }
-.price-card { max-width: 420px; margin: 0 auto; background: var(--card); border: 2px solid var(--accent); border-radius: 20px; padding: 28px; text-align: center; }
+.plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
+.price-card { display: flex; flex-direction: column; background: var(--card); border: 2px solid var(--accent); border-radius: 20px; padding: 28px; text-align: center; }
+.plans .price-card:not(.main) { border-color: var(--line); box-shadow: none; }
+.plan-name { margin: 0 0 6px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: .85rem; }
+.price-card .btn { margin-top: auto; }
 .price { font-size: 1.1rem; margin: 0; }
 .price b { font-size: 2.6rem; letter-spacing: -.02em; }
 .price-card ul { list-style: none; padding: 0; margin: 20px 0 24px; text-align: left; }
@@ -383,6 +387,7 @@ body.site { background: var(--bg); }
 @media (max-width: 860px) {
   .hero { grid-template-columns: 1fr; gap: 36px; padding-top: 12px; }
   .steps, .features, .site-options { grid-template-columns: 1fr; }
+  .plans { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; }
 }
 @media (max-width: 420px) {
   .site-nav nav > a:not(.btn) { display: none; }

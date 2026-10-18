@@ -32,6 +32,7 @@ CarWashEasy заменяет листок: машину записали → н�
 | Вопрос | Решение |
 |---|---|
 | Цена | **R349/мес**, одна на всё: приложение + онлайн-запись (`PRICE_MONTHLY`) |
+| Цены на лендинге (18.10.2026) | Три карточки: **Pilot R0 / 60 дней** (всё то же бесплатно, взамен обратная связь; `/signup?plan=pilot` даёт `PILOT_DAYS` вместо триала, отдельно в базе не помечается — видно по дате в письме о регистрации), **Monthly R349**, **Yearly R3,990** с типовым сайтом (`PRICE_YEARLY`) |
 | Установка у мойки (Docker, без интернета) | **Убрана**. `SITE_MODE` удалён |
 | Домен и хостинг | Покупает и оплачивает **мойка**. Запись и приложение — только на нашем сервере; на хостинге мойки — только файлы сайта (обычный хостинг в ЮАР — PHP, xneelo Python не поддерживает) |
 | У мойки уже есть сайт | Кнопка «Book online» → страница записи на её адресе `book.<её домен>` (CNAME на наш сервер, адрес вписываем в `/admin`) или `/book/<slug>` |
@@ -139,7 +140,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 ```bash
 python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
 ADMIN_PASSWORD=admin flask --app app run --debug   # локально, база в ./data
-pytest -q                                          # 63 теста
+pytest -q                                          # 64 теста
 ```
 Деплой (подробно в README.md):
 ```bash
@@ -148,7 +149,7 @@ bash deploy/update.sh   # обновление
 bash deploy/backup.sh   # бэкап SQLite в backups/
 sudo docker compose exec notify flask --app app report   # отчёт на почту прямо сейчас (проверка SMTP)
 ```
-Переменные окружения: `DOMAIN`, `SECRET_KEY`, `ADMIN_PASSWORD`, `SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`, `PRICE_MONTHLY`, `TRIAL_DAYS`, `APP_NAME`, `THEME`, `COOKIE_SECURE`, `DATA_DIR`, `BACKUP_BUCKET`, `NOTIFY_EMAIL`, `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` (см. `.env.example`). `DOMAIN` может содержать несколько адресов через запятую: для ссылок в письмах берётся первый.
+Переменные окружения: `DOMAIN`, `SECRET_KEY`, `ADMIN_PASSWORD`, `SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`, `PRICE_MONTHLY`, `PRICE_YEARLY`, `TRIAL_DAYS`, `PILOT_DAYS`, `APP_NAME`, `THEME`, `COOKIE_SECURE`, `DATA_DIR`, `BACKUP_BUCKET`, `NOTIFY_EMAIL`, `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` (см. `.env.example`). `DOMAIN` может содержать несколько адресов через запятую: для ссылок в письмах берётся первый.
 
 ## Особенности облачной песочницы Claude Code
 - Системный `pip install flask` падает (конфликт debian-пакета blinker) → ставить в venv.
