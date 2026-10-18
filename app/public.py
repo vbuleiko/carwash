@@ -58,6 +58,8 @@ def landing():
 @bp.route("/signup", methods=["GET", "POST"])
 def signup():
     form = {}
+    pilot = request.values.get("plan") == "pilot"
+    days = current_app.config["PILOT_DAYS" if pilot else "TRIAL_DAYS"]
     if request.method == "POST":
         form = request.form
         name = form.get("name", "").strip()[:60]
@@ -84,17 +86,17 @@ def signup():
                     tenant_id = seed.create_tenant(
                         db, name=name, email=email, password_hash=generate_password_hash(password),
                         phone=phone, city=form.get("city", "").strip()[:60],
-                        trial_days=current_app.config["TRIAL_DAYS"], theme=themes.picked(),
+                        trial_days=days, theme=themes.picked(),
                     )
             except sqlite3.IntegrityError:  # the same form sent twice
                 flash("This email already has an account. Log in instead.", "error")
-                return render_template("public/signup.html", form=form)
+                return render_template("public/signup.html", form=form, pilot=pilot, days=days)
             _start_session(tenant_id)
-            flash(f"Welcome! Your {current_app.config['TRIAL_DAYS']}-day free trial has started.")
+            flash(f"Welcome! Your {days}-day free {'pilot' if pilot else 'trial'} has started.")
             return redirect(url_for("owner.board"))
         for e in errors:
             flash(e, "error")
-    return render_template("public/signup.html", form=form)
+    return render_template("public/signup.html", form=form, pilot=pilot, days=days)
 
 
 @bp.route("/login", methods=["GET", "POST"])

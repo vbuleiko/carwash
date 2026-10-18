@@ -32,6 +32,7 @@ CarWashEasy заменяет листок: машину записали → н�
 | Вопрос | Решение |
 |---|---|
 | Цена | **R349/мес**, одна на всё: приложение + онлайн-запись (`PRICE_MONTHLY`) |
+| Цены на лендинге (18.10.2026) | Три карточки: **Pilot R0 / 60 дней** (всё то же бесплатно, взамен обратная связь; `/signup?plan=pilot` даёт `PILOT_DAYS` вместо триала, отдельно в базе не помечается — видно по дате в письме о регистрации), **Monthly R349**, **Yearly R3,990** с типовым сайтом (`PRICE_YEARLY`) |
 | Установка у мойки (Docker, без интернета) | **Убрана**. `SITE_MODE` удалён |
 | Домен и хостинг | Покупает и оплачивает **мойка**. Запись и приложение — только на нашем сервере; на хостинге мойки — только файлы сайта (обычный хостинг в ЮАР — PHP, xneelo Python не поддерживает) |
 | У мойки уже есть сайт | Кнопка «Book online» → страница записи на её адресе `book.<её домен>` (CNAME на наш сервер, адрес вписываем в `/admin`) или `/book/<slug>` |
@@ -117,7 +118,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 - Лимиты (`security.limiter`) хранятся в таблице `rate_hits`, общие для всех воркеров gunicorn.
 - Письма шлёт только контейнер `notify` (веб-приложение SMTP не трогает): раз в минуту `notify.tick` — регистрации за последние сутки, которых нет в `mails_sent`, и после 22:00 отчёт за сутки 22:00–22:00. Сначала отправка, потом отметка; ошибка SMTP — повтор через минуту. Если отчёт не собрался, уходит письмо с трассировкой. Демо в отчёте — только числом. SMTP с проверкой сертификата (587 STARTTLS, 465 SSL). `MAIL_FROM` по умолчанию = `SMTP_USER`, если это адрес (Gmail шлёт только от себя; адрес `@carwasheasy.co.za` через Gmail не пройдёт DMARC `p=quarantine`), иначе `noreply@<DOMAIN>`. `db.init_db` мигрирует под `BEGIN IMMEDIATE`: оба контейнера стартуют одновременно.
 - Кнопка «Ready» — это `<a href="wa.me..." target="_blank" data-mark="/app/visit/<id>/ready">`. JS отправляет POST и перезагружает доску. В демо (`data-demo="1"` на body) вместо открытия WhatsApp показывается превью.
-- Мойки без владельца (решение 18.10.2026): `/admin` → *Car washes that haven't signed up*, по строке `Name | Address | City | WhatsApp` (до 50 за раз, дубль по имени пропускается). Стартовый прайс, `paid_until` на `admin.PROSPECT_DAYS` (365) вперёд — чтобы запись не закрылась, пока идут переговоры. Сайт для владельца — `/site/<slug>` (тот же `site/website.html`, `preview=True`): сверху полоса из `site/_top.html` с 5 темами (POST `/theme` с `next`, тема посетителя в cookie; `themes.current()` для такой мойки берёт cookie раньше темы мойки, и на её странице записи тоже) и «I like this look» → `/site/<slug>/pick` → wa.me на `SUPPORT_WHATSAPP` с названием мойки и темы. `noindex` на сайте и странице записи. **Hand over** (`/admin/tenant/<id>/owner`): email владельца, тема, случайный пароль, триал `TRIAL_DAYS` с этого дня, новый `session_key`; после этого `/site/<slug>` — 404. Письма о регистрации их не касаются, в отчёте 22:00 — только число и записи с их страниц.
+- Мойки без владельца (решение 18.10.2026): `/admin` → *Car washes that haven't signed up*, по строке `Name | Address | City | WhatsApp` (до 50 за раз, дубль по имени пропускается). Стартовый прайс, `paid_until` на `admin.PROSPECT_DAYS` (365) вперёд — чтобы запись не закрылась, пока идут переговоры. Сайт для владельца — `/site/<slug>` (тот же `site/website.html`, `preview=True`): сверху полоса из `site/_top.html` с 5 темами (POST `/theme` с `next`, тема посетителя в cookie; `themes.current()` для такой мойки берёт cookie раньше темы мойки, и на её странице записи тоже) и «I like this look» → `/site/<slug>/pick` → wa.me на `SUPPORT_WHATSAPP` с названием мойки и темы. `noindex` на сайте и странице записи. **Hand over** (`/admin/tenant/<id>/owner`): email владельца, тема, случайный пароль, пилот `PILOT_DAYS` с этого дня (это мойки, которым пилот предлагают лично), новый `session_key`; после этого `/site/<slug>` — 404. Письма о регистрации их не касаются, в отчёте 22:00 — только число и записи с их страниц.
 - Демо-мойки: `is_demo = 1`, `email = NULL`. Живут 24 ч (`seed.DEMO_HOURS`; старое демо выкидывает на лендинг), не больше 300 одновременно, не больше 10 в час с одного IP. Телефоны в демо случайные, но похожи на настоящие, поэтому ссылки WhatsApp в демо — `#` (`queries.chat_link`), а JS показывает превью.
 - Истёкшая подписка: данные видны, но `/app/new` не пускает.
 - Вёрстка mobile-first. После изменений UI проверять ширину 390px на **горизонтальный скролл** (`document.documentElement.scrollWidth`). Скрытые input'ы уже раз ломали ширину страницы.
@@ -141,7 +142,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 ```bash
 python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
 ADMIN_PASSWORD=admin flask --app app run --debug   # локально, база в ./data
-pytest -q                                          # 65 тестов
+pytest -q                                          # 66 тестов
 ```
 Деплой (подробно в README.md):
 ```bash
@@ -150,7 +151,7 @@ bash deploy/update.sh   # обновление
 bash deploy/backup.sh   # бэкап SQLite в backups/
 sudo docker compose exec notify flask --app app report   # отчёт на почту прямо сейчас (проверка SMTP)
 ```
-Переменные окружения: `DOMAIN`, `SECRET_KEY`, `ADMIN_PASSWORD`, `SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`, `PRICE_MONTHLY`, `TRIAL_DAYS`, `APP_NAME`, `THEME`, `COOKIE_SECURE`, `DATA_DIR`, `BACKUP_BUCKET`, `NOTIFY_EMAIL`, `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` (см. `.env.example`). `DOMAIN` может содержать несколько адресов через запятую: для ссылок в письмах берётся первый.
+Переменные окружения: `DOMAIN`, `SECRET_KEY`, `ADMIN_PASSWORD`, `SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`, `PRICE_MONTHLY`, `PRICE_YEARLY`, `TRIAL_DAYS`, `PILOT_DAYS`, `APP_NAME`, `THEME`, `COOKIE_SECURE`, `DATA_DIR`, `BACKUP_BUCKET`, `NOTIFY_EMAIL`, `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` (см. `.env.example`). `DOMAIN` может содержать несколько адресов через запятую: для ссылок в письмах берётся первый.
 
 ## Особенности облачной песочницы Claude Code
 - Системный `pip install flask` падает (конфликт debian-пакета blinker) → ставить в venv.

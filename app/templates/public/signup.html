@@ -5,11 +5,12 @@
 {% block body %}
 {% include "public/_nav.html" %}
 <main class="narrow">
-  <h1>Start your free trial</h1>
-  <p class="muted">{{ config.TRIAL_DAYS }} days free. No card needed.</p>
+  <h1>{{ 'Join the pilot' if pilot else 'Start your free trial' }}</h1>
+  <p class="muted">{{ days }} days free. No card needed.{% if pilot %} In return, tell us what works and what to improve.{% endif %}</p>
   {{ flashes() }}
   <form method="post" class="stack card">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    {% if pilot %}<input type="hidden" name="plan" value="pilot">{% endif %}
     <label class="field"><span>Car wash name</span><input name="name" value="{{ form.name or '' }}" required maxlength="60" autocomplete="organization"></label>
     <label class="field"><span>Your WhatsApp number</span><input name="phone" value="{{ form.phone or '' }}" type="tel" required placeholder="082 123 4567" autocomplete="tel"></label>
     <label class="field"><span>Email</span><input name="email" value="{{ form.email or '' }}" type="email" required autocomplete="email"></label>

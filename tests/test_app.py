@@ -918,7 +918,7 @@ def test_website_for_a_car_wash_that_has_not_signed_up(app, db):
     password = re.search(rb"password: (\S+) ", resp.data).group(1).decode()
     t = db.execute("SELECT * FROM tenants WHERE id = ?", (t["id"],)).fetchone()
     assert t["email"] == "joe@bay.co.za" and t["theme"] == "volt" and t["plan"] == "trial"
-    assert t["paid_until"] == (local_today(zone(DEFAULT_TZ)) + timedelta(days=30)).isoformat()
+    assert t["paid_until"] == (local_today(zone(DEFAULT_TZ)) + timedelta(days=60)).isoformat()
     assert visitor.get(f"/site/{BAY}").status_code == 404
     joe = Browser(app.test_client())
     joe.get("/login")
@@ -972,6 +972,17 @@ def test_landing_has_no_load_shedding_promise(client):
 def test_landing_prices(client):
     page = client.get("/").data
     assert b"R349" in page and b"Free when you pay a year upfront" in page and b"Price on request" in page
+    assert b"R3,990" in page and b"R0" in page and b"/signup?plan=pilot" in page
+    assert b"Paper works just fine" in page
+
+
+def test_pilot_signup_gets_longer_free_period(browser, db):
+    assert b"Join the pilot" in browser.get("/signup?plan=pilot").data
+    resp = browser.post("/signup", {"name": "Pilot Wash", "email": "pilot@example.com", "password": "secret123",
+                                    "phone": "082 555 1234", "plan": "pilot"})
+    assert resp.status_code == 302
+    t = db.execute("SELECT * FROM tenants WHERE email = 'pilot@example.com'").fetchone()
+    assert (date.fromisoformat(t["paid_until"]) - date.fromisoformat(t["created_at"][:10])).days in (60, 61)
 
 
 def test_old_database_drops_washer_pay(tmp_path):

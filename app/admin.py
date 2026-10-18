@@ -37,7 +37,7 @@ def add_months(d: date, months: int) -> date:
 
 
 DOMAIN_RE = re.compile(r"(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}")
-PROSPECT_DAYS = 365  # its booking page stays open while we talk; the trial starts when the owner gets the login
+PROSPECT_DAYS = 365  # its booking page stays open while we talk; the pilot starts when the owner gets the login
 
 
 @bp.before_request
@@ -138,7 +138,7 @@ def add_prospects():
 
 @bp.post("/tenant/<int:tid>/owner")
 def hand_over(tid):
-    """The owner said yes: their login, the look they picked, and the free trial from today."""
+    """The owner said yes: their login, the look they picked, and the free pilot from today."""
     tenant = _tenant_or_404(tid)
     email = request.form.get("email", "").strip().lower()[:120]
     look = request.form.get("theme", "")
@@ -151,7 +151,7 @@ def hand_over(tid):
         flash("That email already has an account.", "error")
     else:
         password = secrets.token_urlsafe(8)
-        until = local_today(zone(DEFAULT_TZ)) + timedelta(days=current_app.config["TRIAL_DAYS"])
+        until = local_today(zone(DEFAULT_TZ)) + timedelta(days=current_app.config["PILOT_DAYS"])
         with db:
             db.execute(
                 "UPDATE tenants SET email = ?, password_hash = ?, theme = ?, plan = 'trial', paid_until = ? "
@@ -161,7 +161,7 @@ def hand_over(tid):
             )
         queries.session_key(db, tid, rotate=True)
         flash(f"{tenant['name']} is theirs now. Login: {email}, password: {password} — send it to the owner and "
-              f"ask them to change it. Free trial until {until:%d %b %Y}.")
+              f"ask them to change it. Free pilot until {until:%d %b %Y}.")
     return redirect(url_for("admin.index"))
 
 
