@@ -223,7 +223,7 @@ sudo docker compose exec notify flask --app app report   # отчёт на по�
 - Не настроено: ответы от имени `admin@` из Gmail («Send mail as»). Через Gmail SMTP такие письма тоже не пройдут DMARC домена — если понадобится писать владельцам моек с `admin@`, нужен SMTP с подписью домена (ImprovMX Premium или Resend + DKIM в GoDaddy).
 
 ## Сайты для моек Хелдерберга (18.10.2026)
-- Ветка `claude/kind-volta-upatfa`: мойки без владельца в `/admin` и сайт `/site/<slug>` с выбором темы (см. «Соглашения»). **Не слито в `main`, не задеплоено.**
+- Слито в **`main`** 18.10.2026 ([vbuleiko/carwash#5](https://github.com/vbuleiko/carwash/pull/5)): мойки без владельца в `/admin` и сайт `/site/<slug>` с выбором темы (см. «Соглашения»). Новую работу начинать от `main`. **Не задеплоено** на 18.10.2026.
 - Список моек — Excel `CarWashEasy-leads-Cape-Town.xlsx` из сессии 16.10 (Google Maps, 718 моек → 239 с телефоном → 46 проверены, 183 в запасе). Файл остался в старом контейнере, в репозиторий его не клали (чужие телефоны). Хелдерберг восстановлен из журнала той сессии: **25 моек** (6 проверенных, 19 из запаса; у запаса адреса не сохранились).
 - Без сайта 12. Решение пользователя: без мойки при Sasol на R44. Spa Valet Centre оказался с сайтом (`spacardetailing.co.za`, есть Book Now). Итого сайты для **10**: Bay Crescent, Hussle, Bright, SDG, Magic Touch, 4Drive, Car Wash at The Sanctuary, Buff & Brew, Black 19, Water Worx (у неё городской номер — кнопки WhatsApp нет).
 - Почты (поиск 18.10): нашлись только у 4 моек, и у всех уже есть свои сайты (Moto Wash, Whizzo, Sparkling Elite Somerset West, MSQ Strand). У моек без сайта почт в открытом доступе нет: каталоги дают только телефон, Facebook без входа не открывается.
