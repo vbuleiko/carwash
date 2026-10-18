@@ -79,6 +79,10 @@ dialog.sheet { border-radius: 2px; background: var(--card); border-color: var(--
 .visit-top { display: block; }
 .visit-top .since { display: block; margin: 2px 0 4px; }
 .logo { font-stretch: 112%; letter-spacing: .04em; }
+@media (max-width: 420px) {
+  .site-nav .logo { font-stretch: 100%; letter-spacing: 0; }
+  .site-nav .btn { font-stretch: 100%; letter-spacing: .1em; padding-inline: 12px; }
+}
 
 /* bookings */
 .lane-booked .visit, .lane-booked .visit.card { border-left-color: var(--accent); }
