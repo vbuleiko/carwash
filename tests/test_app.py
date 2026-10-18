@@ -884,9 +884,16 @@ def test_website_for_a_car_wash_that_has_not_signed_up(app, db):
                                 "Water Worx | | Strand |\n | Main Rd\nBad Number | Main Rd | Strand | 123",
                          follow_redirects=True)
     assert b"Added 2: Bay Crescent Carwash, Water Worx." in resp.data and b"Skipped: Bad Number" in resp.data
-    assert b"already here" in add_prospects(admin, "Bay Crescent Carwash", follow_redirects=True).data
+    maps = "https://maps.google.com/?cid=4294354752046552542"
+    resp = add_prospects(admin, f"Bay Crescent Carwash | Lancaster Rd, Gordons Bay | | | {maps}\n"
+                                "Water Worx | | Strand | | https://evil.example.com/maps", follow_redirects=True)
+    assert b"Updated 1: Bay Crescent Carwash." in resp.data and b"Skipped: Water Worx (the Google Maps link" in resp.data
+    assert db.execute("SELECT COUNT(*) FROM tenants").fetchone()[0] == 2
     t = db.execute("SELECT * FROM tenants WHERE slug = ?", (BAY,)).fetchone()
-    assert t["email"] is None and t["address"] == "Lancaster Rd, Gordon's Bay" and t["phone"] == "27821112222"
+    assert t["email"] is None and t["address"] == "Lancaster Rd, Gordons Bay" and t["phone"] == "27821112222"
+    assert t["maps_url"] == maps
+    assert b"https://www.google.com/maps/search/?api=1&amp;query=Water%20Worx%2C%20Strand" in \
+        app.test_client().get("/site/water-worx").data
     assert t["city"] == "Gordon's Bay" and ids(db, "services", t["id"])
     assert f"http://localhost/site/{BAY}".encode() in admin.get("/admin/").data
 
@@ -895,6 +902,7 @@ def test_website_for_a_car_wash_that_has_not_signed_up(app, db):
     assert page.status_code == 200 and b"Your new website by CarWashEasy" in page.data and b"noindex" in page.data
     assert b"Wash &amp; Vac" in page.data and f'href="http://localhost/book/{BAY}"'.encode() in page.data
     assert b"themes/carbon.css" in page.data and b'href="https://wa.me/27821112222?text=' in page.data
+    assert f'href="{maps}"'.encode() in page.data
     resp = visitor.post("/theme", {"theme": "volt", "next": f"/site/{BAY}"})
     assert resp.location == f"/site/{BAY}"
     assert b"themes/volt.css" in visitor.get(f"/site/{BAY}").data

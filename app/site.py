@@ -1,6 +1,7 @@
 """The car wash's own page for customers: pick a car, services, day and time."""
 import re
 from datetime import date
+from urllib.parse import quote
 
 from flask import (
     Blueprint,
@@ -80,7 +81,8 @@ def website(tenant, asset, look: str, preview: bool = False) -> str:
         "site/website.html", t=tenant, look=look, asset=asset, services=services, place=where, preview=preview,
         prospect=preview, book=book,
         login=book + "login" if tenant["domain"] else url_for("public.login", _external=True),
-        map_query=", ".join(p for p in (tenant["name"], where) if p), year=date.today().year,
+        map_url=tenant["maps_url"] or "https://www.google.com/maps/search/?api=1&query="
+        + quote(", ".join(p for p in (tenant["name"], where) if p)), year=date.today().year,
         wa=_wa(tenant, f"Hi {tenant['name']}! I'd like to book a wash."),
     )
 

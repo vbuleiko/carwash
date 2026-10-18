@@ -67,10 +67,10 @@
 
   <section class="card" id="prospects">
     <h2>Car washes that haven't signed up</h2>
-    <p class="muted small">We make each one a website with the starter price list and a booking page. Send the owner the website link: they try the looks and tap <b>I like this look</b>. When they say yes, hand it over with their email. One car wash per line: <b>Name | Address | City | WhatsApp</b>.</p>
+    <p class="muted small">We make each one a website with the starter price list and a booking page. Send the owner the website link: they try the looks and tap <b>I like this look</b>. When they say yes, hand it over with their email. One car wash per line: <b>Name | Address | City | WhatsApp | Google Maps link</b> (the link is optional; without it "Open in Google Maps" searches by name and address). A line with the name of a car wash already here updates it.</p>
     <form method="post" action="{{ url_for('admin.add_prospects') }}" class="stack">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-      <textarea name="lines" rows="4" placeholder="Joe's Car Wash | 12 Main Rd, Strand | Strand | 082 123 4567" aria-label="Car washes, one per line" autocapitalize="off" spellcheck="false" required></textarea>
+      <textarea name="lines" rows="4" placeholder="Joe's Car Wash | 12 Main Rd, Strand | Strand | 082 123 4567 | https://maps.app.goo.gl/..." aria-label="Car washes, one per line" autocapitalize="off" spellcheck="false" required></textarea>
       <button class="btn primary">Add</button>
     </form>
   </section>
@@ -88,6 +88,7 @@
     <div class="muted small">
       Website for the owner: <a href="{{ site_url }}" target="_blank" rel="noopener">{{ site_url }}</a>
       · <a href="{{ t.page_url }}" target="_blank" rel="noopener">booking page</a>
+      · {% if t.maps_url %}<a href="{{ t.maps_url }}" target="_blank" rel="noopener">Google Maps</a>{% else %}no Google Maps link{% endif %}
       · <a href="{{ url_for('admin.website_zip', tid=t.id) }}">download</a>
     </div>
     <div class="row wrap-row">
