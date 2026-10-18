@@ -91,6 +91,7 @@ app/static/themes/<name>.css  остальные темы: переопреде�
 app/static/fonts/            шрифты тем (свои файлы, без CDN), ужаты без потерь — см. «Скорость загрузки»
 app/static/vendor/           декодер PDF417 для iPhone: barcode-detector 3.2.2 + zxing_reader.wasm (MIT/Apache-2.0), как пересобрать — README.md там же
 app/templates/site/          страница записи (book.html, done.html, _hero.html, _top.html — панель владельца с выбором темы); website.html — типовой сайт для хостинга мойки (пути к файлам через `asset()`)
+brand/            логотип (SVG/PNG: для тёмного фона, для белого, квадрат для аватарки WhatsApp) и make.py — README.md там же
 tests/            pytest (conftest.Browser сам подставляет CSRF-токен)
 deploy/           setup-vm.sh, update.sh, backup.sh
 Caddyfile         основной DOMAIN + `https://` с on-demand TLS для адресов моек (Caddy спрашивает `/tls-check`)
