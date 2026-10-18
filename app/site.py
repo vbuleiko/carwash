@@ -1,5 +1,6 @@
 """The car wash's own page for customers: pick a car, services, day and time."""
 import re
+from datetime import date
 
 from flask import (
     Blueprint,
@@ -69,6 +70,21 @@ def place(tenant) -> str:
     return ", ".join(p for p in parts if p)
 
 
+def website(tenant, asset, look: str, preview: bool = False) -> str:
+    """The ready-made website: files for the car wash's own hosting, or (preview) the page we send
+    an owner-to-be, with the look switch."""
+    _, services, _ = queries.price_list(get_db(), tenant["id"])
+    book = page_url(tenant)
+    where = place(tenant)
+    return render_template(
+        "site/website.html", t=tenant, look=look, asset=asset, services=services, place=where, preview=preview,
+        prospect=preview, book=book,
+        login=book + "login" if tenant["domain"] else url_for("public.login", _external=True),
+        map_query=", ".join(p for p in (tenant["name"], where) if p), year=date.today().year,
+        wa=_wa(tenant, f"Hi {tenant['name']}! I'd like to book a wash."),
+    )
+
+
 def _owner_view(tenant) -> bool:
     return session.get("tenant_id") == tenant["id"] and session.get("key") == tenant["session_key"]
 
@@ -90,7 +106,8 @@ def _common(tenant) -> dict:
         "today_index": g.today.weekday(),
         "today_hours": bookings.hours_text(span),
         "open_now": bool(span) and span[0] <= now < span[1],
-        "owner_view": _owner_view(tenant),
+        "owner_view": _owner_view(tenant) and not queries.is_prospect(tenant),
+        "prospect": queries.is_prospect(tenant),
         "book_url": "/" if g.host else url_for("site.page", slug=tenant["slug"]),
     }
 

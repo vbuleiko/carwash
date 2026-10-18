@@ -74,11 +74,11 @@ Python 3.12 · Flask 3.1 · SQLite (WAL) · серверные Jinja-шабло�
 app/__init__.py   create_app(): конфиг из env, ProxyFix, CSRF, CSP/заголовки, фильтры шаблонов
 app/db.py         схема SQLite (CREATE IF NOT EXISTS; новые колонки — в CREATE TABLE и в ADDED_COLUMNS, там ALTER для старых баз)
 app/owner.py      /app — доска, приём/редактирование визита, машины, отчёты, настройки
-app/public.py     /, /signup, /login, /logout, POST /demo, /privacy, /robots.txt, /healthz
+app/public.py     /, /signup, /login, /logout, POST /demo, /privacy, /robots.txt, /healthz, /site/<slug> — сайт мойки без владельца с выбором темы
 app/site.py       страница записи для клиентов: /book/<slug>, POST туда же, /book/<slug>/<code> — «запись принята»; find_host — мойка по адресу запроса
 app/bookings.py   часы работы, свободные времена, записи, текст подтверждения, адрес страницы (slug)
 app/disc.py       штрихкод license disc (PDF417, текст через `%`) → номер, марка/модель, тип авто; список марок `MAKES`
-app/admin.py      /admin — пароль из ADMIN_PASSWORD (пусто = 404); адрес мойки, типовой сайт (website, website.zip)
+app/admin.py      /admin — пароль из ADMIN_PASSWORD (пусто = 404); адрес мойки, типовой сайт (website, website.zip); мойки без владельца (prospects, Hand over)
 app/notify.py     письма на NOTIFY_EMAIL: регистрация (в течение минуты) и отчёт в 22:00; запись ошибок 500 в `errors`; команды `flask notify` (цикл раз в минуту) и `flask report` (отчёт сейчас)
 app/queries.py    общие запросы: прайс, визиты, лояльность, тексты и ссылки WhatsApp, подписка
 app/reports.py    отчёты, скорость мойщиков, заработок
@@ -101,6 +101,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 `tenants` → `bookings` (`slot_at` в UTC, `minutes` — время услуг на момент записи, `status`: `new → confirmed → arrived`, плюс `cancelled` и `cancelled_by` = `owner`/`customer`; `visit_id` после «Arrived»; `code` — для ссылки клиента) → `booking_services`. У `services` есть `minutes` (сколько запись держит место).
 Настройки записи в `tenants`: `slug` (уникальный, адрес `/book/<slug>`), `domain` (уникальный, свой адрес мойки, `''` = нет), `address`, `hours` (JSON на 7 дней с понедельника, `''` = по умолчанию), `slot_capacity`, `booking_on`, `msg_booking`, `msg_cancel`.
 Убранные колонки (оплата мойщиков) удаляются из старых баз через `db.DROPPED_COLUMNS`.
+Мойка без владельца (`queries.is_prospect`): `is_demo = 0` и `email = NULL` — заведена в `/admin`, чтобы показать владельцу сайт; войти в неё нельзя.
 Без `tenant_id`-фильтра (служебные): `errors` (ошибки 500: путь, мойка, `place` = последний кадр в `app/`, трассировка; хранятся 30 дней), `mails_sent` (`signup:<id>:<created_at>`, `report:<дата>` — чтобы письмо не ушло дважды), `rate_hits`.
 
 ### Соглашения (важно соблюдать)
@@ -117,6 +118,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 - Лимиты (`security.limiter`) хранятся в таблице `rate_hits`, общие для всех воркеров gunicorn.
 - Письма шлёт только контейнер `notify` (веб-приложение SMTP не трогает): раз в минуту `notify.tick` — регистрации за последние сутки, которых нет в `mails_sent`, и после 22:00 отчёт за сутки 22:00–22:00. Сначала отправка, потом отметка; ошибка SMTP — повтор через минуту. Если отчёт не собрался, уходит письмо с трассировкой. Демо в отчёте — только числом. SMTP с проверкой сертификата (587 STARTTLS, 465 SSL). `MAIL_FROM` по умолчанию = `SMTP_USER`, если это адрес (Gmail шлёт только от себя; адрес `@carwasheasy.co.za` через Gmail не пройдёт DMARC `p=quarantine`), иначе `noreply@<DOMAIN>`. `db.init_db` мигрирует под `BEGIN IMMEDIATE`: оба контейнера стартуют одновременно.
 - Кнопка «Ready» — это `<a href="wa.me..." target="_blank" data-mark="/app/visit/<id>/ready">`. JS отправляет POST и перезагружает доску. В демо (`data-demo="1"` на body) вместо открытия WhatsApp показывается превью.
+- Мойки без владельца (решение 18.10.2026): `/admin` → *Car washes that haven't signed up*, по строке `Name | Address | City | WhatsApp` (до 50 за раз, дубль по имени пропускается). Стартовый прайс, `paid_until` на `admin.PROSPECT_DAYS` (365) вперёд — чтобы запись не закрылась, пока идут переговоры. Сайт для владельца — `/site/<slug>` (тот же `site/website.html`, `preview=True`): сверху полоса из `site/_top.html` с 5 темами (POST `/theme` с `next`, тема посетителя в cookie; `themes.current()` для такой мойки берёт cookie раньше темы мойки, и на её странице записи тоже) и «I like this look» → `/site/<slug>/pick` → wa.me на `SUPPORT_WHATSAPP` с названием мойки и темы. `noindex` на сайте и странице записи. **Hand over** (`/admin/tenant/<id>/owner`): email владельца, тема, случайный пароль, пилот `PILOT_DAYS` с этого дня (это мойки, которым пилот предлагают лично), новый `session_key`; после этого `/site/<slug>` — 404. Письма о регистрации их не касаются, в отчёте 22:00 — только число и записи с их страниц.
 - Демо-мойки: `is_demo = 1`, `email = NULL`. Живут 24 ч (`seed.DEMO_HOURS`; старое демо выкидывает на лендинг), не больше 300 одновременно, не больше 10 в час с одного IP. Телефоны в демо случайные, но похожи на настоящие, поэтому ссылки WhatsApp в демо — `#` (`queries.chat_link`), а JS показывает превью.
 - Истёкшая подписка: данные видны, но `/app/new` не пускает.
 - Вёрстка mobile-first. После изменений UI проверять ширину 390px на **горизонтальный скролл** (`document.documentElement.scrollWidth`). Скрытые input'ы уже раз ломали ширину страницы.
@@ -140,7 +142,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 ```bash
 python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
 ADMIN_PASSWORD=admin flask --app app run --debug   # локально, база в ./data
-pytest -q                                          # 64 теста
+pytest -q                                          # 66 тестов
 ```
 Деплой (подробно в README.md):
 ```bash
@@ -219,3 +221,10 @@ sudo docker compose exec notify flask --app app report   # отчёт на по�
 - Почему так: SMTP у ImprovMX только на Premium ($9/мес), Resend заводить не стали. Отправлять от `@carwasheasy.co.za` через Gmail нельзя: Gmail не подпишет домен, DMARC `p=quarantine` отправит письмо в спам. Свой основной Gmail отправителем не ставить: письмо, вернувшееся через пересылку в тот же ящик, Gmail прячет в «Отправленные».
 - Проверка: `sudo docker compose exec notify flask --app app report` → «Sent to admin@carwasheasy.co.za.»; проблемы — `sudo docker compose logs notify --tail 30`. `535 Username and Password not accepted` = пароль приложения неверный или отозван (он слетает при смене пароля Google-аккаунта).
 - Не настроено: ответы от имени `admin@` из Gmail («Send mail as»). Через Gmail SMTP такие письма тоже не пройдут DMARC домена — если понадобится писать владельцам моек с `admin@`, нужен SMTP с подписью домена (ImprovMX Premium или Resend + DKIM в GoDaddy).
+
+## Сайты для моек Хелдерберга (18.10.2026)
+- Ветка `claude/kind-volta-upatfa`: мойки без владельца в `/admin` и сайт `/site/<slug>` с выбором темы (см. «Соглашения»). **Не слито в `main`, не задеплоено.**
+- Список моек — Excel `CarWashEasy-leads-Cape-Town.xlsx` из сессии 16.10 (Google Maps, 718 моек → 239 с телефоном → 46 проверены, 183 в запасе). Файл остался в старом контейнере, в репозиторий его не клали (чужие телефоны). Хелдерберг восстановлен из журнала той сессии: **25 моек** (6 проверенных, 19 из запаса; у запаса адреса не сохранились).
+- Без сайта 12. Решение пользователя: без мойки при Sasol на R44. Spa Valet Centre оказался с сайтом (`spacardetailing.co.za`, есть Book Now). Итого сайты для **10**: Bay Crescent, Hussle, Bright, SDG, Magic Touch, 4Drive, Car Wash at The Sanctuary, Buff & Brew, Black 19, Water Worx (у неё городской номер — кнопки WhatsApp нет).
+- Почты (поиск 18.10): нашлись только у 4 моек, и у всех уже есть свои сайты (Moto Wash, Whizzo, Sparkling Elite Somerset West, MSQ Strand). У моек без сайта почт в открытом доступе нет: каталоги дают только телефон, Facebook без входа не открывается.
+- Пользователю отданы файлом (не в git): таблица по 25 мойкам с почтами и строки для `/admin`.

@@ -21,7 +21,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from . import queries, seed, site, themes
 from .db import get_db
 from .security import client_ip, limiter
-from .utils import normalize_phone, phone_is_valid
+from .utils import normalize_phone, phone_is_valid, wa_link
 
 bp = Blueprint("public", __name__)
 
@@ -160,11 +160,42 @@ def demo():
 @bp.post("/theme")
 def theme():
     name = request.form.get("theme", "")
+    back = request.form.get("next", "")  # a website we made for a car wash, or its booking page
     if request.headers.get("X-Requested-With") == "fetch":  # app.js switches the look in place
         resp = jsonify(ok=True)
+    elif back.startswith(("/site/", "/book/")) and back.isprintable():
+        resp = redirect(back)
     else:
         resp = redirect(url_for("public.landing", _anchor="look"))
     return themes.remember(resp, name) if name in themes.THEMES else resp
+
+
+def _prospect(slug: str):
+    tenant = get_db().execute("SELECT * FROM tenants WHERE slug = ?", (slug,)).fetchone()
+    if g.host or tenant is None or not queries.is_prospect(tenant):
+        abort(404)
+    return site.use(tenant)
+
+
+@bp.get("/site/<slug>")
+def website(slug):
+    """The website we made for a car wash before it signed up: its owner gets the link and picks a look."""
+    tenant = _prospect(slug)
+    look = themes.current()
+    files = {"theme.css": f"themes/{look}.css"}
+    return site.website(tenant, lambda name: url_for("static", filename=files.get(name, name)), look, preview=True)
+
+
+@bp.get("/site/<slug>/pick")
+def website_pick(slug):
+    """"I like this look": a WhatsApp to us, with the look and the car wash."""
+    tenant = _prospect(slug)
+    number = current_app.config["SUPPORT_WHATSAPP"]
+    if not number:
+        abort(404)
+    look = themes.THEMES[themes.current()]["name"]
+    page = url_for(".website", slug=slug, _external=True)
+    return redirect(wa_link(number, f"Hi! This is {tenant['name']}. We like the {look} look for our website: {page}"))
 
 
 @bp.get("/privacy")

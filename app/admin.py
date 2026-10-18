@@ -4,7 +4,7 @@ import io
 import re
 import secrets
 import zipfile
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from flask import (
@@ -22,10 +22,10 @@ from flask import (
 )
 from werkzeug.security import generate_password_hash
 
-from . import queries, site, themes
+from . import public, queries, seed, site, themes
 from .db import get_db
 from .security import client_ip, limiter, same
-from .utils import DEFAULT_TZ, local_today, ts, days_ago, zone
+from .utils import DEFAULT_TZ, local_today, normalize_phone, phone_is_valid, ts, days_ago, zone
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -37,6 +37,7 @@ def add_months(d: date, months: int) -> date:
 
 
 DOMAIN_RE = re.compile(r"(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}")
+PROSPECT_DAYS = 365  # its booking page stays open while we talk; the pilot starts when the owner gets the login
 
 
 @bp.before_request
@@ -83,8 +84,11 @@ def index():
     for t in tenants:
         t["days_left"] = (date.fromisoformat(t["paid_until"]) - today).days
         t["page_url"] = site.page_url(t)
+    prospects = [t for t in tenants if queries.is_prospect(t)]
+    tenants = [t for t in tenants if not queries.is_prospect(t)]
     stats = {
         "total": len(tenants),
+        "prospects": len(prospects),
         "paid": sum(1 for t in tenants if t["plan"] == "paid" and t["days_left"] >= 0),
         "trial": sum(1 for t in tenants if t["plan"] == "trial" and t["days_left"] >= 0),
         "expired": sum(1 for t in tenants if t["days_left"] < 0),
@@ -93,7 +97,8 @@ def index():
             "SELECT COUNT(*) FROM tenants WHERE is_demo = 1 AND created_at >= ?", (ts(days_ago(1)),)
         ).fetchone()[0],
     }
-    return render_template("admin/index.html", tenants=tenants, stats=stats, today=today)
+    return render_template("admin/index.html", tenants=tenants, prospects=prospects, stats=stats, today=today,
+                           themes=themes.THEMES, default_look=themes.default())
 
 
 def _tenant_or_404(tenant_id: int):
@@ -101,6 +106,63 @@ def _tenant_or_404(tenant_id: int):
     if tenant is None:
         abort(404)
     return tenant
+
+
+@bp.post("/prospects")
+def add_prospects():
+    """Car washes that haven't signed up, one per line: Name | Address | City | WhatsApp.
+    Each gets the starter price list, a booking page and a website to show its owner."""
+    db = get_db()
+    added, skipped = [], []
+    for line in request.form.get("lines", "").splitlines()[:50]:
+        if not line.strip():
+            continue
+        name, address, city, phone = ([part.strip() for part in line.split("|")] + [""] * 3)[:4]
+        phone = normalize_phone(phone, "27")
+        if not name or (phone and not phone_is_valid(phone)):
+            skipped.append(f"{line.strip()} (needs a name and a valid WhatsApp number)")
+        elif db.execute("SELECT 1 FROM tenants WHERE name = ? AND is_demo = 0 AND email IS NULL",
+                        (name[:60],)).fetchone():
+            skipped.append(f"{name} (already here)")
+        else:
+            with db:
+                seed.create_tenant(db, name=name[:60], phone=phone, city=city[:60], address=address[:120],
+                                   trial_days=PROSPECT_DAYS)
+            added.append(name)
+    if added:
+        flash(f"Added {len(added)}: {', '.join(added)}.")
+    for line in skipped:
+        flash(f"Skipped: {line}", "error")
+    return redirect(url_for("admin.index", _anchor="prospects"))
+
+
+@bp.post("/tenant/<int:tid>/owner")
+def hand_over(tid):
+    """The owner said yes: their login, the look they picked, and the free pilot from today."""
+    tenant = _tenant_or_404(tid)
+    email = request.form.get("email", "").strip().lower()[:120]
+    look = request.form.get("theme", "")
+    db = get_db()
+    if not queries.is_prospect(tenant):
+        flash(f"{tenant['name']} already has an owner.", "error")
+    elif not public.EMAIL_RE.match(email):
+        flash("Enter the owner's email.", "error")
+    elif db.execute("SELECT 1 FROM tenants WHERE email = ?", (email,)).fetchone():
+        flash("That email already has an account.", "error")
+    else:
+        password = secrets.token_urlsafe(8)
+        until = local_today(zone(DEFAULT_TZ)) + timedelta(days=current_app.config["PILOT_DAYS"])
+        with db:
+            db.execute(
+                "UPDATE tenants SET email = ?, password_hash = ?, theme = ?, plan = 'trial', paid_until = ? "
+                "WHERE id = ?",
+                (email, generate_password_hash(password), look if look in themes.THEMES else tenant["theme"],
+                 until.isoformat(), tid),
+            )
+        queries.session_key(db, tid, rotate=True)
+        flash(f"{tenant['name']} is theirs now. Login: {email}, password: {password} — send it to the owner and "
+              f"ask them to change it. Free pilot until {until:%d %b %Y}.")
+    return redirect(url_for("admin.index"))
 
 
 @bp.post("/tenant/<int:tid>/extend")
@@ -199,25 +261,12 @@ def _font_files(look: str) -> list[str]:
     return [name for family, name in faces if family in css]
 
 
-def _website(tenant, asset) -> str:
-    _, services, _ = queries.price_list(get_db(), tenant["id"])
-    book = site.page_url(tenant)
-    place = site.place(tenant)
-    wa = f"Hi {tenant['name']}! I'd like to book a wash."
-    return render_template(
-        "site/website.html", t=tenant, look=_look(tenant), asset=asset, services=services, place=place,
-        book=book, login=book + "login" if tenant["domain"] else url_for("public.login", _external=True),
-        map_query=", ".join(p for p in (tenant["name"], place) if p), year=date.today().year,
-        wa=queries.chat_link(tenant, tenant["phone"], wa) if tenant["phone"] else "",
-    )
-
-
 @bp.get("/tenant/<int:tid>/website")
 def website(tid):
     """The ready-made website, as it will look on the car wash's own hosting."""
     tenant = _tenant_or_404(tid)
     files = {"theme.css": f"themes/{_look(tenant)}.css"}
-    return _website(tenant, lambda name: url_for("static", filename=files.get(name, name)))
+    return site.website(tenant, lambda name: url_for("static", filename=files.get(name, name)), _look(tenant))
 
 
 @bp.get("/tenant/<int:tid>/website.zip")
@@ -227,7 +276,7 @@ def website_zip(tid):
     look = _look(tenant)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("index.html", _website(tenant, lambda name: name))
+        z.writestr("index.html", site.website(tenant, lambda name: name, look))
         z.writestr("style.css", (STATIC / "style.css").read_text().replace("url(/static/fonts/", "url(fonts/"))
         if look != "classic":
             z.write(STATIC / "themes" / f"{look}.css", "theme.css")

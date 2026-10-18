@@ -2,7 +2,7 @@
 {% from "_macros.html" import icon, flashes, preview_dialog %}
 {% block title %}Book a wash · {{ t.name }}{% endblock %}
 {% block description %}Book your car wash at {{ t.name }} online: pick the services, the day and the time.{% endblock %}
-{% block head %}{% if t.is_demo %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% block head %}{% if t.is_demo or prospect %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
 {% block body_class %}site book-page{% endblock %}
 {% block body_attrs %}data-demo="{{ 1 if t.is_demo else 0 }}"{% endblock %}
 {% block body %}

@@ -25,15 +25,16 @@ MSG_REVIEW = (
 )
 
 
-def create_tenant(db, *, name, email=None, password_hash=None, phone="", city="",
+def create_tenant(db, *, name, email=None, password_hash=None, phone="", city="", address="",
                   trial_days=30, is_demo=False, theme="", slug="") -> int:
     today = local_today(zone(DEFAULT_TZ))
     cur = db.execute(
-        "INSERT INTO tenants (name, email, password_hash, phone, city, msg_ready, msg_review, msg_booking, "
-        "msg_cancel, loyalty_every, paid_until, is_demo, theme, session_key, slug, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO tenants (name, email, password_hash, phone, city, address, msg_ready, msg_review, "
+        "msg_booking, msg_cancel, loyalty_every, paid_until, is_demo, theme, session_key, slug, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
-            name, email, password_hash, phone, city, MSG_READY, MSG_REVIEW, bookings.MSG_BOOKING, bookings.MSG_CANCEL,
+            name, email, password_hash, phone, city, address,
+            MSG_READY, MSG_REVIEW, bookings.MSG_BOOKING, bookings.MSG_CANCEL,
             6 if is_demo else 0,
             (today + timedelta(days=trial_days)).isoformat(),
             1 if is_demo else 0,

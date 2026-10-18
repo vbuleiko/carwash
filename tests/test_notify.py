@@ -40,6 +40,17 @@ def test_new_sign_up_is_mailed_once(app, browser, db, mails):
     assert "https://carwasheasy.co.za/admin" in body
 
 
+def test_websites_for_car_washes_without_an_owner_stay_out_of_the_mails(app, db, mails):
+    admin = Browser(app.test_client())
+    admin.post("/admin/login", {"password": "admin-pass"})
+    admin.post("/admin/prospects", {"lines": "Bay Crescent Carwash | Lancaster Rd | Gordon's Bay | 082 111 2222\n"
+                                             "Water Worx | | Strand |"})
+    notify.tick(db, app.config, next_report_time())
+    assert [s for s, _ in mails] == [f"CarWashEasy · {next_report_time():%d %b} · 0 sign-ups · 0 errors · 0 cars"]
+    body = mails[0][1]
+    assert "NEW SIGN-UPS: 0" in body and "CAR WASHES: 0" in body and "WEBSITE PREVIEWS, no owner yet: 2" in body
+
+
 def test_daily_report_goes_once_at_22(app, owner, db, mails):
     tid = db.execute("SELECT id FROM tenants WHERE is_demo = 0").fetchone()[0]
     types = [r[0] for r in db.execute("SELECT id FROM car_types WHERE tenant_id = ? ORDER BY sort", (tid,))]

@@ -1,6 +1,8 @@
 """Five dark looks. The owner picks one for the app, a visitor picks one on the landing page."""
 from flask import current_app, g, request, url_for
 
+from . import queries
+
 THEMES = {  # fonts: the files every page of the look needs, fetched before the CSS asks for them
     "carbon": {"name": "Carbon", "about": "Motorsport. Signal orange on carbon black.",
                "bg": "#0a0a0a", "card": "#1c1c1c", "accent": "#ff5a1f", "ink": "#0a0a0a",
@@ -34,6 +36,8 @@ def picked() -> str:
 
 def current() -> str:
     tenant = g.get("tenant") or g.get("site")  # the owner's car wash, or the one whose page this is
+    if tenant is not None and "tenant" not in g and queries.is_prospect(tenant) and picked():
+        return picked()  # its owner-to-be is trying the looks on the website we made for it
     if tenant is not None:
         return tenant["theme"] if tenant["theme"] in THEMES else default()
     return picked() or default()

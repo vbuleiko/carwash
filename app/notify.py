@@ -90,8 +90,8 @@ def _mark(db, key: str):
 def tick(db, config, now: datetime | None = None):
     """Once a minute: mail new sign-ups, and the report once it's 22:00."""
     now = now or now_utc()
-    for t in db.execute("SELECT * FROM tenants WHERE is_demo = 0 AND created_at >= ? ORDER BY id",
-                        (ts(now - timedelta(days=1)),)).fetchall():
+    for t in db.execute("SELECT * FROM tenants WHERE is_demo = 0 AND email IS NOT NULL AND created_at >= ? "
+                        "ORDER BY id", (ts(now - timedelta(days=1)),)).fetchall():
         key = f"signup:{t['id']}:{t['created_at']}"
         if not _sent(db, key):
             send(config, *signup_mail(t, config))
@@ -140,7 +140,9 @@ def _report(db, config, day: date) -> tuple[str, str]:
     a = ts(datetime.combine(day - timedelta(days=1), REPORT_AT, TZ))
     b = ts(datetime.combine(day, REPORT_AT, TZ))
     real = "AND tenant_id IN (SELECT id FROM tenants WHERE is_demo = 0)"
-    tenants = db.execute("SELECT * FROM tenants WHERE is_demo = 0 ORDER BY name COLLATE NOCASE, id").fetchall()
+    everyone = db.execute("SELECT * FROM tenants WHERE is_demo = 0 ORDER BY name COLLATE NOCASE, id").fetchall()
+    tenants = [t for t in everyone if not queries.is_prospect(t)]
+    prospects = [t for t in everyone if queries.is_prospect(t)]
     visits = {r["tenant_id"]: r for r in db.execute(
         "SELECT tenant_id, SUM(status != 'cancelled') AS cars, SUM(status = 'cancelled') AS cancelled, "
         "SUM(CASE WHEN status != 'cancelled' THEN price_cents ELSE 0 END) AS revenue "
@@ -157,7 +159,7 @@ def _report(db, config, day: date) -> tuple[str, str]:
     demos = db.execute("SELECT COUNT(*) FROM tenants WHERE is_demo = 1 AND created_at >= ? AND created_at < ?",
                        (a, b)).fetchone()[0]
     signups = [t for t in tenants if a <= t["created_at"] < b]
-    active = set(visits) | set(ready) | set(collected) | set(booked)
+    active = (set(visits) | set(ready) | set(collected) | set(booked)) & {t["id"] for t in tenants}
     cars = sum(v["cars"] for v in visits.values())
 
     lines = [f"{config['APP_NAME']} — {day:%A %d %B %Y}", "22:00 yesterday to 22:00 today, Johannesburg time.",
@@ -191,6 +193,10 @@ def _report(db, config, day: date) -> tuple[str, str]:
         if bk:
             parts.append(_n(bk["made"], "booking") + (f" ({bk['cancelled']} cancelled)" if bk["cancelled"] else ""))
         lines += [head, "    " + " · ".join(parts)]
+
+    if prospects:  # someone may book on a website we made before its car wash signed up
+        lines += ["", f"WEBSITE PREVIEWS, no owner yet: {len(prospects)}"]
+        lines += [f"  {t['name']} · {_n(booked[t['id']]['made'], 'booking')}" for t in prospects if t["id"] in booked]
 
     lines += ["", f"DEMOS: {demos} started"]
     subject = (f"{config['APP_NAME']} · {day:%d %b} · {_n(len(signups), 'sign-up')} · "

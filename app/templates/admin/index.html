@@ -19,6 +19,7 @@
     <div class="stat"><b>{{ stats.expired }}</b><span>expired</span></div>
     <div class="stat"><b>{{ stats.cars_30d }}</b><span>cars, 30 days</span></div>
     <div class="stat"><b>{{ stats.demos_24h }}</b><span>demos, 24 h</span></div>
+    <div class="stat"><b>{{ stats.prospects }}</b><span>no owner yet</span></div>
   </section>
 
   <p class="muted small">Own address: the car wash adds a DNS record <b>CNAME</b> for its subdomain (e.g. <b>book</b>) → <b>{{ request.host }}</b>, then you save the address here. HTTPS turns on by itself on the first visit. Website: download the files and upload them to the car wash's hosting (public_html).</p>
@@ -62,6 +63,46 @@
   </article>
   {% else %}
   <p class="empty">No car washes yet. Share the landing page!</p>
+  {% endfor %}
+
+  <section class="card" id="prospects">
+    <h2>Car washes that haven't signed up</h2>
+    <p class="muted small">We make each one a website with the starter price list and a booking page. Send the owner the website link: they try the looks and tap <b>I like this look</b>. When they say yes, hand it over with their email. One car wash per line: <b>Name | Address | City | WhatsApp</b>.</p>
+    <form method="post" action="{{ url_for('admin.add_prospects') }}" class="stack">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <textarea name="lines" rows="4" placeholder="Joe's Car Wash | 12 Main Rd, Strand | Strand | 082 123 4567" aria-label="Car washes, one per line" autocapitalize="off" spellcheck="false" required></textarea>
+      <button class="btn primary">Add</button>
+    </form>
+  </section>
+
+  {% for t in prospects %}
+  {% set site_url = url_for('public.website', slug=t.slug, _external=True) %}
+  <article class="card tenant {{ 'inactive' if t.is_disabled }}">
+    <div class="tenant-head">
+      <div>
+        <b>{{ t.name }}</b>{% if t.city %} <span class="muted">· {{ t.city }}</span>{% endif %}
+        <div class="muted small">{{ t.address or 'no address' }}{% if t.phone %} · <a href="{{ wa_link(t.phone) }}" target="_blank" rel="noopener">{{ t.phone|phone }}</a>{% endif %} · added {{ t.created_at[:10] }}</div>
+      </div>
+      <span class="pill">{{ 'paused' if t.is_disabled else 'no owner yet' }}</span>
+    </div>
+    <div class="muted small">
+      Website for the owner: <a href="{{ site_url }}" target="_blank" rel="noopener">{{ site_url }}</a>
+      · <a href="{{ t.page_url }}" target="_blank" rel="noopener">booking page</a>
+      · <a href="{{ url_for('admin.website_zip', tid=t.id) }}">download</a>
+    </div>
+    <div class="row wrap-row">
+      <form method="post" action="{{ url_for('admin.open_as', tid=t.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn">Open app</button></form>
+      <form method="post" action="{{ url_for('admin.hand_over', tid=t.id) }}" class="row hand-over">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="email" name="email" placeholder="Owner's email" aria-label="Owner's email" autocapitalize="off" spellcheck="false" required>
+        <select name="theme" aria-label="Look">
+          {% for key, th in themes.items() %}<option value="{{ key }}" {{ 'selected' if key == (t.theme or default_look) }}>{{ th.name }}</option>{% endfor %}
+        </select>
+        <button class="btn">Hand over</button>
+      </form>
+      <form method="post" action="{{ url_for('admin.toggle', tid=t.id) }}" data-confirm="{{ 'Enable' if t.is_disabled else 'Pause' }} {{ t.name }}?"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn ghost {{ '' if t.is_disabled else 'danger' }}">{{ 'Enable' if t.is_disabled else 'Pause' }}</button></form>
+    </div>
+  </article>
   {% endfor %}
 </main>
 {% endblock %}
