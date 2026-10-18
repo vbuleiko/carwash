@@ -519,12 +519,18 @@ body.site { background: var(--bg); }
 }
 
 /* ready-made website for a car wash's own hosting */
-.website .book-hero .cta { margin-bottom: 0; }
-.website .step .ticks { margin: 0 0 12px; }
-.web-steps { list-style: none; padding: 0; margin: 0 0 22px; display: grid; gap: 12px; }
-.web-steps li { display: flex; align-items: baseline; gap: 12px; }
-.web-steps b { display: block; }
-.website .step > p { margin: 0 0 12px; }
+.website .how { max-width: 920px; }
+.web-hero { max-width: 760px; margin: 0 auto; padding: 64px 20px 40px; border-bottom: 0; text-align: center; }
+.web-hero h1 { margin-bottom: .5rem; }
+.web-hero .lead { margin: 0 auto 14px; }
+.web-hero .book-meta { align-items: center; justify-content: center; margin-bottom: 0; }
+.web-hero .cta { justify-content: center; margin-bottom: 0; }
+.web-services { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.web-services li { display: flex; align-items: center; gap: 10px; padding: 16px; font-weight: 600; }
+.web-services .icon { flex: none; color: var(--accent); }
+.web-more, .web-find { text-align: center; }
+.web-more { margin: 18px 0 0; }
+.web-find p { margin: 0 0 14px; color: var(--muted); }
 
 /* landing: booking page teaser */
 .promo { max-width: 1080px; margin: 0 auto; padding: 40px 20px; display: grid; grid-template-columns: .85fr 1.15fr; gap: 48px; align-items: center; }
