@@ -1027,6 +1027,7 @@ def test_landing_prices(client):
     page = client.get("/").data
     assert b"R349" in page and b"Ready-made website in your look" in page and b"upfront with the ready-made" not in page and b"Price on request" in page
     assert b"R3,990" in page and b"R0" in page and b"/signup?plan=pilot" in page
+    assert b'<s class="price-was">R4,188</s>' in page and b"R332.50 a month" in page and b"Save R198 a year" in page
     assert b"Paper works just fine" in page
 
 

@@ -22,7 +22,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from . import queries, seed, site, themes
 from .db import get_db
 from .security import client_ip, limiter
-from .utils import DEFAULT_TZ, format_phone, local_today, normalize_phone, phone_is_valid, ts, zone
+from .utils import DEFAULT_TZ, format_phone, local_today, normalize_phone, parse_money, phone_is_valid, ts, zone
 
 bp = Blueprint("public", __name__)
 
@@ -49,11 +49,19 @@ def on_car_wash_address():
             abort(404)
 
 
+def _yearly() -> dict | None:
+    """The yearly price next to twelve monthly payments, for the pricing card."""
+    month, year = (parse_money(current_app.config[k]) for k in ("PRICE_MONTHLY", "PRICE_YEARLY"))
+    if not month or not year or year >= month * 12:
+        return None
+    return {"full": month * 12, "per_month": round(year / 12), "saved": month * 12 - year}
+
+
 @bp.get("/")
 def landing():
     if g.host:
         return site.render_page(g.host)
-    return render_template("public/landing.html")
+    return render_template("public/landing.html", yearly=_yearly())
 
 
 def _account_errors(email: str, password: str, phone: str) -> list[str]:
