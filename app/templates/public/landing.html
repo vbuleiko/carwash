@@ -157,10 +157,12 @@
       </div>
       <div class="price-card">
         <p class="plan-name">Yearly</p>
-        <p class="price"><b>{{ config.PRICE_YEARLY }}</b> / year</p>
+        <p class="price">{% if yearly %}<s class="price-was">{{ yearly.full|money }}</s> {% endif %}<b>{{ config.PRICE_YEARLY }}</b> / year</p>
+        {% if yearly %}<p class="price-month">{{ yearly.per_month|money }} a month</p>{% endif %}
         <p class="muted">per car wash · paid once a year</p>
         <ul>
           <li>{{ icon('check') }} Everything in Monthly</li>
+          {% if yearly %}<li>{{ icon('check') }} Save {{ yearly.saved|money }} a year</li>{% endif %}
         </ul>
         <a class="btn big wide" href="{{ url_for('public.signup') }}">Start {{ config.TRIAL_DAYS }} days free</a>
       </div>
