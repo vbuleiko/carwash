@@ -979,7 +979,7 @@ def test_landing_has_no_load_shedding_promise(client):
 
 def test_landing_prices(client):
     page = client.get("/").data
-    assert b"R349" in page and b"Free when you pay a year upfront" in page and b"Price on request" in page
+    assert b"R349" in page and b"Ready-made website in your look" in page and b"upfront with the ready-made" not in page and b"Price on request" in page
     assert b"R3,990" in page and b"R0" in page and b"/signup?plan=pilot" in page
     assert b"Paper works just fine" in page
 

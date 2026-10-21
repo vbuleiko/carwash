@@ -16,7 +16,7 @@
         Ended on <b>{{ g.sub.until.strftime('%d %B %Y') }}</b>. Your data is safe.
       {% endif %}
     </p>
-    <p class="muted">{{ config.PRICE_MONTHLY }} per month, or {{ config.PRICE_YEARLY }} a year with a ready-made website. Pay by EFT — we'll send you the details and extend your account as soon as it's paid.</p>
+    <p class="muted">{{ config.PRICE_MONTHLY }} per month, or {{ config.PRICE_YEARLY }} a year — the ready-made website is included in both. Pay by EFT — we'll send you the details and extend your account as soon as it's paid.</p>
     {% if config.SUPPORT_WHATSAPP %}
     <a class="btn wa" target="_blank" rel="noopener"
        href="{{ wa_link(config.SUPPORT_WHATSAPP, 'Hi! I would like to subscribe ' ~ g.tenant.name ~ ' (' ~ g.tenant.email ~ ') to ' ~ config.APP_NAME ~ '.') }}">{{ icon('chat') }} Subscribe on WhatsApp</a>
