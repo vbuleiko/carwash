@@ -142,7 +142,7 @@ sudo docker compose up -d --build
 | `MAIL_FROM` | от кого письма; по умолчанию `SMTP_USER`, если это адрес (Gmail), иначе `noreply@<DOMAIN>` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | почтовый сервер для отправки (Gmail: `smtp.gmail.com`, `587`, адрес, пароль приложения); пустой пароль = писем нет |
 | `QUBRID_API_KEY` | ключ Qubrid для чтения прайса по фото/PDF; пусто = кнопки нет |
-| `QUBRID_MODEL` | vision-модель Qubrid, по умолчанию `Qwen/Qwen3-VL-Flash` (список: `https://platform.qubrid.com/v1/models`) |
+| `QUBRID_MODEL` | vision-модель Qubrid, по умолчанию `Qwen/Qwen3-VL-Plus` (список: `https://platform.qubrid.com/v1/models`) |
 | `THEME` | оформление по умолчанию для лендинга и новых моек: `carbon` (по умолчанию), `volt`, `midnight`, `noir`, `classic` |
 | `COOKIE_SECURE` | `1` на HTTPS (норма), `0` только для теста по http |
 
