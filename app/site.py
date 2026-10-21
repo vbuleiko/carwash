@@ -6,6 +6,7 @@ from urllib.parse import quote
 from flask import (
     Blueprint,
     abort,
+    current_app,
     flash,
     g,
     redirect,
@@ -64,6 +65,13 @@ def page_url(tenant) -> str:
     return url_for("site.page", slug=tenant["slug"], _external=True)
 
 
+def website_url(tenant) -> str:
+    """The car wash's website on our main address (not on its own one: there / is the booking page)."""
+    path = url_for("public.website", slug=tenant["slug"])
+    base = current_app.config["SITE_URL"]
+    return base + path if base else url_for("public.website", slug=tenant["slug"], _external=True)
+
+
 def place(tenant) -> str:
     parts = [tenant["address"], tenant["city"]]
     if parts[0] and parts[1] and parts[1].lower() in parts[0].lower():
@@ -72,8 +80,8 @@ def place(tenant) -> str:
 
 
 def website(tenant, asset, look: str, preview: bool = False) -> str:
-    """The ready-made website: files for the car wash's own hosting, or (preview) the page we send
-    an owner-to-be, with the look switch."""
+    """The ready-made website: on our address, or files for the car wash's own hosting;
+    preview: the car wash has no owner yet, so the page shows the look switch and "Make it mine"."""
     _, services, _ = queries.price_list(get_db(), tenant["id"])
     book = page_url(tenant)
     where = place(tenant)

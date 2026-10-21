@@ -10,6 +10,7 @@ from app.utils import (
     fill_template,
     money,
     normalize_phone,
+    now_utc,
     parse_money,
     phone_is_valid,
     plate_key,
@@ -899,7 +900,8 @@ def test_website_for_a_car_wash_that_has_not_signed_up(app, db):
 
     visitor = Browser(app.test_client())
     page = visitor.get(f"/site/{BAY}")
-    assert page.status_code == 200 and b"Your new website by CarWashEasy" in page.data and b"noindex" in page.data
+    assert page.status_code == 200 and b"Made for Bay Crescent Carwash by CarWashEasy" in page.data
+    assert b"noindex" in page.data and f'href="/site/{BAY}/claim"'.encode() in page.data
     assert b"Wash &amp; Vac" in page.data and f'href="http://localhost/book/{BAY}"'.encode() in page.data
     assert b"themes/carbon.css" in page.data and b'href="https://wa.me/27821112222?text=' in page.data
     assert f'href="{maps}"'.encode() in page.data
@@ -907,14 +909,14 @@ def test_website_for_a_car_wash_that_has_not_signed_up(app, db):
     assert resp.location == f"/site/{BAY}"
     assert b"themes/volt.css" in visitor.get(f"/site/{BAY}").data
     booking = visitor.get(f"/book/{BAY}").data
-    assert b"themes/volt.css" in booking and b"Your new booking page" in booking and b"noindex" in booking
-    pick = unquote(visitor.get(f"/site/{BAY}/pick").location)
-    assert pick.startswith("https://wa.me/27820000000?text=") and "Bay Crescent Carwash" in pick and "Volt" in pick
+    assert b"themes/volt.css" in booking and b"Made for Bay Crescent" in booking and b"noindex" in booking
     assert db.execute("SELECT theme FROM tenants WHERE id = ?", (t["id"],)).fetchone()[0] == ""
 
     signup(Browser(app.test_client()))
-    assert visitor.get(f"/site/{SLUG}").status_code == 404  # a car wash that signed up has its own website
-    assert b"themes/carbon.css" in visitor.get(f"/book/{SLUG}").data  # and its own look
+    owned = visitor.get(f"/site/{SLUG}")  # a car wash that signed up: its website on our address, in its own look
+    assert owned.status_code == 200 and b"themes/carbon.css" in owned.data
+    assert b"noindex" not in owned.data and b"Made for" not in owned.data and b"/claim" not in owned.data
+    assert b"themes/carbon.css" in visitor.get(f"/book/{SLUG}").data
     assert visitor.get("/site/nobody").status_code == 404
 
     assert b"Enter the owner" in admin.post(f"/admin/tenant/{t['id']}/owner", {"email": "joe"},
@@ -927,12 +929,56 @@ def test_website_for_a_car_wash_that_has_not_signed_up(app, db):
     t = db.execute("SELECT * FROM tenants WHERE id = ?", (t["id"],)).fetchone()
     assert t["email"] == "joe@bay.co.za" and t["theme"] == "volt" and t["plan"] == "trial"
     assert t["paid_until"] == (local_today(zone(DEFAULT_TZ)) + timedelta(days=60)).isoformat()
-    assert visitor.get(f"/site/{BAY}").status_code == 404
+    assert b"Made for" not in visitor.get(f"/site/{BAY}").data
     joe = Browser(app.test_client())
     joe.get("/login")
     assert joe.post("/login", {"email": "joe@bay.co.za", "password": password}).location.endswith("/app/")
     assert b"already has an owner" in admin.post(f"/admin/tenant/{t['id']}/owner", {"email": "x@bay.co.za"},
                                                  follow_redirects=True).data
+
+
+def test_owner_makes_the_website_theirs(app, db):
+    admin = admin_login(app)
+    add_prospects(admin, "Bay Crescent Carwash | Lancaster Rd | Gordon's Bay | 082 111 2222")
+    joe = Browser(app.test_client())
+    joe.post("/theme", {"theme": "volt", "next": f"/site/{BAY}"})
+    page = joe.get(f"/site/{BAY}/claim").data
+    assert b"Make Bay Crescent Carwash yours" in page and b'value="+27 82 111 2222"' in page
+    assert b"themes/volt.css" in page
+    signup(Browser(app.test_client()))
+    taken = joe.post(f"/site/{BAY}/claim", {"phone": "082 111 2222", "email": "owner@example.com", "password": "secret123"})
+    assert b"already has an account" in taken.data
+    assert b"at least 8" in joe.post(f"/site/{BAY}/claim", {"phone": "0821112222", "email": "joe@bay.co.za",
+                                                              "password": "short"}).data
+    resp = joe.post(f"/site/{BAY}/claim", {"phone": "083 999 8888", "email": "Joe@Bay.co.za", "password": "secret123"})
+    assert resp.location.endswith("/app/")
+    assert b"Bay Crescent Carwash is yours" in joe.get("/app/").data
+    t = db.execute("SELECT * FROM tenants WHERE slug = ?", (BAY,)).fetchone()
+    assert t["email"] == "joe@bay.co.za" and t["phone"] == "27839998888" and t["theme"] == "volt"
+    assert t["plan"] == "trial" and t["paid_until"] == (local_today(zone(DEFAULT_TZ)) + timedelta(days=60)).isoformat()
+    assert t["created_at"] >= ts(now_utc() - timedelta(minutes=1))  # counts as a sign-up in the emails
+    assert f"http://localhost/site/{BAY}".encode() in joe.get("/app/bookings").data
+    again = Browser(app.test_client()).get(f"/site/{BAY}/claim")
+    assert again.status_code == 302 and again.location.endswith("/login")
+    from app import notify
+    app.config["SITE_URL"] = "https://carwasheasy.co.za"
+    assert f"Website: https://carwasheasy.co.za/site/{BAY}" in notify.signup_mail(t, app.config)[1]
+
+
+def test_see_your_app_opens_a_demo_with_the_car_wash_name(app, db):
+    admin = admin_login(app)
+    add_prospects(admin, "Bay Crescent Carwash | Lancaster Rd | Gordon's Bay | 082 111 2222")
+    joe = Browser(app.test_client())
+    joe.get(f"/site/{BAY}")
+    assert joe.post("/demo", {"site": BAY}).location.endswith("/app/")
+    board = joe.get("/app/").data
+    assert b"Bay Crescent Carwash (demo)" in board and f'href="/site/{BAY}/claim"'.encode() in board
+    demo_id = db.execute("SELECT id FROM tenants WHERE is_demo = 1").fetchone()[0]
+    joe.post("/demo", {"site": BAY})
+    assert db.execute("SELECT COUNT(*) FROM tenants WHERE is_demo = 1").fetchone()[0] == 1  # the same demo again
+    joe.post("/demo")
+    assert b"Sunshine Car Wash (demo)" in joe.get("/app/").data and b"/claim" not in joe.get("/app/").data
+    assert db.execute("SELECT id FROM tenants WHERE is_demo = 1 ORDER BY id DESC").fetchone()[0] != demo_id
 
 
 # --- licence disc scanner -------------------------------------------------------

@@ -1,5 +1,5 @@
-{# the ready-made website a car wash puts on its own hosting: admin → Website (preview) and Download;
-   preview = the same page on our server for a car wash that hasn't signed up, with the look switch #}
+{# the ready-made website: on our address (/site/<slug>), or files for the car wash's own hosting (admin → Download);
+   preview = a car wash that hasn't signed up: the look switch and "Make it mine" for its owner-to-be #}
 {% from "_macros.html" import icon %}
 <!doctype html>
 <html lang="en">
@@ -13,8 +13,8 @@
   <link rel="stylesheet" href="{{ asset('style.css') }}">
   {% if look != 'classic' %}<link rel="stylesheet" href="{{ asset('theme.css') }}" id="look-css">{% endif %}
   {% for font in themes[look].fonts %}<link rel="preload" href="{{ asset('fonts/' ~ font ~ '.woff2') }}" as="font" type="font/woff2" crossorigin>{% endfor %}
+  {% if preview or t.is_demo %}<meta name="robots" content="noindex">{% endif %}
   {% if preview %}
-  <meta name="robots" content="noindex">
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
   {% endif %}
 </head>
@@ -51,6 +51,27 @@
     </ol>
     <div class="cta cta-center"><a class="btn primary big" href="{{ book }}">{{ icon('calendar') }} Book online</a></div>
   </section>
+
+  {% if preview %}
+  <section class="how web-yours" id="yours">
+    <p class="eyebrow">For the owner of {{ t.name }}</p>
+    <h2>It's ready. Make it yours.</h2>
+    <ul class="ticks">
+      <li>{{ icon('check') }}<span><b>This website.</b> On this address — no domain or hosting to buy. Put the link on Google Maps and WhatsApp.</span></li>
+      <li>{{ icon('check') }}<span><b>Online booking.</b> Customers pick a time, you confirm on WhatsApp in one tap.</span></li>
+      <li>{{ icon('check') }}<span><b>The app.</b> Log every car, text “your car is ready”, see what you made today.</span></li>
+    </ul>
+    <p class="web-price"><b>Free for {{ config.PILOT_DAYS }} days.</b> Then {{ config.PRICE_MONTHLY }} a month, website included. No card, no contract.</p>
+    <div class="cta cta-center">
+      <a class="btn primary big" href="{{ url_for('public.claim', slug=t.slug) }}">Make it mine</a>
+      <form method="post" action="{{ url_for('public.demo') }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="site" value="{{ t.slug }}">
+        <button class="btn big">See your app</button>
+      </form>
+    </div>
+  </section>
+  {% endif %}
 
   {% if place %}
   <section class="how web-find">

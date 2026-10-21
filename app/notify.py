@@ -124,7 +124,7 @@ def signup_mail(t, config) -> tuple[str, str]:
         f"Trial until: {date.fromisoformat(t['paid_until']):%d %b %Y}",
     ]
     if config["SITE_URL"]:
-        lines += ["", f"All car washes: {config['SITE_URL']}/admin"]
+        lines += [f"Website: {config['SITE_URL']}/site/{t['slug']}", "", f"All car washes: {config['SITE_URL']}/admin"]
     return f"New sign-up: {t['name']}", "\n".join(lines)
 
 

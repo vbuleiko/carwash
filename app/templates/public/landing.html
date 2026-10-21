@@ -183,7 +183,7 @@
         <p>A website designed just for your car wash, with booking built in.</p>
         <p class="option-price">Price on request</p>
       </div>
-      <p class="muted small site-options-note">Your domain and hosting stay in your name — you pay for them directly. We give you everything ready to go.</p>
+      <p class="muted small site-options-note">No domain or hosting needed: your website lives on our address for free. Want your own, like yourwash.co.za? Buy the domain and hosting in your name, and we give you the website ready to upload.</p>
     </div>
   </section>
 
@@ -193,7 +193,7 @@
     <details><summary>My washers don't have smartphones.</summary><p>They don't need one. One phone at the wash is enough — you pick who's washing from a list.</p></details>
     <details><summary>Is my customers' data safe?</summary><p>Your data is only visible to you. We never sell it or message your customers ourselves. See our <a href="{{ url_for('public.privacy') }}">privacy policy</a>.</p></details>
     <details><summary>Can the booking page be on my own website?</summary><p>Yes. Add a “Book online” button to your website, and your booking page and app open on your own address, like book.yourwash.co.za. You add one record in your domain settings — we'll send you the steps.</p></details>
-    <details><summary>Do you host my website?</summary><p>No, your domain and hosting stay yours. We give you the website files ready to upload. Bookings and the app run on our servers, so there's nothing to install or update.</p></details>
+    <details><summary>Do you host my website?</summary><p>Yes, for free: it lives on our address, like {{ request.host }}/site/your-wash. Put the link on Google Maps, WhatsApp and Facebook. Want your own domain? Buy it and the hosting in your name, and we give you the website files ready to upload. Bookings and the app run on our servers, so there's nothing to install or update.</p></details>
     <details><summary>Paper works just fine for me. Why would I need this?</summary><p>If you're not planning to grow and don't look at least a year ahead, you probably don't. But if you want to grow and open new locations, it's much harder without a good, simple system.</p></details>
     <details><summary>How do I pay?</summary><p>By EFT after your free trial — {{ config.PRICE_MONTHLY }} a month, or {{ config.PRICE_YEARLY }} for a year upfront. The ready-made website is included in both. We'll remind you a few days before the trial ends.</p></details>
   </section>
