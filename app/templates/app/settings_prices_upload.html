@@ -1,0 +1,19 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import icon %}
+{% block page_title %}Your price list{% endblock %}
+{% block top_left %}{% if welcome %}{{ super() }}{% else %}<a class="topbar-back" href="{{ url_for('owner.settings_prices') }}">{{ icon('back') }} Price list</a>{% endif %}{% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="card stack" data-busy="Reading your price list…">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  {% if welcome %}<input type="hidden" name="welcome" value="1">{% endif %}
+  <h2>{{ 'Start with your price list' if welcome else 'Read your price list' }}</h2>
+  <p class="muted">Take a photo of your price board or choose a PDF. We'll fill in your services and prices for every car type — you check them before anything changes.</p>
+  <label class="field">
+    <span>Photos or a PDF · up to 10 pages</span>
+    <input type="file" name="files" accept="image/*,.pdf,application/pdf" multiple required data-shrink>
+  </label>
+  <button class="btn primary big wide">Read my price list</button>
+  <p class="muted small center">Takes up to a minute.</p>
+</form>
+{% if welcome %}<p class="center"><a href="{{ url_for('owner.board') }}">Skip — start with our sample prices</a></p>{% endif %}
+{% endblock %}

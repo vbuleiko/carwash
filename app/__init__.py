@@ -65,6 +65,8 @@ def create_app(test_config: dict | None = None) -> Flask:
         SMTP_PORT=int(os.environ.get("SMTP_PORT") or 587),
         SMTP_USER=smtp_user,
         SMTP_PASSWORD=os.environ.get("SMTP_PASSWORD", ""),
+        QUBRID_API_KEY=os.environ.get("QUBRID_API_KEY", ""),
+        QUBRID_MODEL=os.environ.get("QUBRID_MODEL") or "Qwen/Qwen3-VL-Flash",
         RATELIMIT_ENABLED=True,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
@@ -97,6 +99,7 @@ def create_app(test_config: dict | None = None) -> Flask:
     app.register_blueprint(site.bp)
 
     app.before_request(site.find_host)
+    app.before_request(owner.big_upload)
     app.before_request(check_csrf)
     got_request_exception.connect(notify.record_error, app)
     app.cli.add_command(notify.notify_command)

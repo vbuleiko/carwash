@@ -17,8 +17,9 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import bookings, disc, queries, reports, seed, site, themes
+from . import bookings, disc, menu, queries, reports, seed, site, themes
 from .db import get_db
+from .security import limiter
 from .utils import (
     TIMEZONES,
     clean_plate,
@@ -666,7 +667,70 @@ def settings_prices():
             flash("Price list saved." + (" Now set prices for the new row." if new_type or new_service else ""))
         return redirect(url_for(".settings_prices"))
     _, _, matrix = queries.price_list(db, _tid())
-    return render_template("app/settings_prices.html", car_types=car_types, services=services, matrix=matrix)
+    return render_template("app/settings_prices.html", car_types=car_types, services=services, matrix=matrix,
+                           can_read=menu.enabled() and not g.tenant["is_demo"])
+
+
+def big_upload():
+    """Photos of a price list are bigger than any other form (registered before the CSRF check reads the form)."""
+    if request.endpoint == "owner.settings_prices_upload":
+        request.max_content_length = menu.MAX_UPLOAD
+
+
+def _price_reader():
+    if not menu.enabled() or g.tenant["is_demo"]:
+        abort(404)
+    return get_db().execute("SELECT * FROM car_types WHERE tenant_id = ? AND active = 1 ORDER BY sort, id",
+                            (_tid(),)).fetchall()
+
+
+@bp.route("/settings/prices/upload", methods=["GET", "POST"])
+def settings_prices_upload():
+    car_types = _price_reader()
+    welcome = request.values.get("welcome") == "1"
+    if request.method == "POST":
+        try:
+            if not limiter.allow(f"menu:{_tid()}", 20, 86400):
+                raise menu.Unreadable("That's a lot of price lists for one day. Try again tomorrow.")
+            images = menu.pictures(f for f in request.files.getlist("files") if f.filename)
+            rows = menu.read(images, [t["name"] for t in car_types])
+        except menu.Unreadable as e:
+            flash(str(e), "error")
+        else:
+            return render_template("app/settings_prices_import.html", car_types=car_types, rows=rows)
+    return render_template("app/settings_prices_upload.html", welcome=welcome)
+
+
+@bp.post("/settings/prices/import")
+def settings_prices_import():
+    car_types = _price_reader()
+    f, rows, bad, seen = request.form, [], [], set()
+    for i in range(menu.MAX_SERVICES):
+        name = " ".join(f.get(f"name_{i}", "").split())[:40]
+        if not name or name.casefold() in seen:
+            continue
+        seen.add(name.casefold())
+        minutes = f.get(f"minutes_{i}", "").strip()
+        minutes = int(minutes) if is_number(minutes) and 0 < int(minutes) <= 600 else 30
+        prices = {}
+        for t in car_types:
+            raw = f.get(f"price_{i}_{t['id']}", "").strip()
+            cents = parse_money(raw)
+            if cents is not None:
+                prices[t["id"]] = cents
+            elif raw:
+                bad.append(f"{name} / {t['name']}")
+        rows.append((name, minutes, prices))
+    if not rows:
+        flash("There was nothing to save.", "error")
+        return redirect(url_for(".settings_prices_upload"))
+    db = get_db()
+    with db:
+        queries.replace_price_list(db, _tid(), rows, [t["id"] for t in car_types])
+    if bad:
+        flash("Some numbers were wrong and were left empty: " + ", ".join(bad), "error")
+    flash(f"Your price list is in: {len(rows)} service{'' if len(rows) == 1 else 's'}.")
+    return redirect(url_for(".settings_prices"))
 
 
 @bp.route("/settings/staff", methods=["GET", "POST"])

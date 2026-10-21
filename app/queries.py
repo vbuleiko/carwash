@@ -68,6 +68,27 @@ def price_list(db, tenant_id: int, keep_types=(), keep_services=()):
     return car_types, services, matrix
 
 
+def replace_price_list(db, tenant_id: int, rows, type_ids):
+    """rows: [(name, minutes, {car_type_id: cents})]. Services not in rows are hidden, not deleted:
+    visits and bookings keep them."""
+    old = {s["name"].casefold(): s["id"] for s in db.execute(  # the same name twice: the one in use wins
+        "SELECT id, name FROM services WHERE tenant_id = ? ORDER BY active, id DESC", (tenant_id,))}
+    db.execute("UPDATE services SET active = 0 WHERE tenant_id = ?", (tenant_id,))
+    marks = ",".join("?" * len(type_ids)) or "NULL"
+    for sort, (name, minutes, prices) in enumerate(rows):
+        service_id = old.get(name.casefold())
+        if service_id:
+            db.execute("UPDATE services SET name = ?, minutes = ?, sort = ?, active = 1 WHERE id = ?",
+                       (name, minutes, sort, service_id))
+            db.execute(f"DELETE FROM prices WHERE service_id = ? AND car_type_id IN ({marks})",
+                       (service_id, *type_ids))
+        else:
+            service_id = db.execute("INSERT INTO services (tenant_id, name, sort, minutes) VALUES (?, ?, ?, ?)",
+                                    (tenant_id, name, sort, minutes)).lastrowid
+        db.executemany("INSERT INTO prices (service_id, car_type_id, price_cents) VALUES (?, ?, ?)",
+                       [(service_id, t, c) for t, c in prices.items()])
+
+
 # --- vehicles & visits --------------------------------------------------------
 
 def find_vehicle(db, tenant_id: int, plate: str):
