@@ -24,7 +24,9 @@ without the price. Skip what isn't a service: opening hours, phone numbers, slog
 - Fit the list's vehicle groups to the given car types: "Small / Medium / Large", "Cars / SUVs / Bakkies", \
 "Light / Heavy" and so on go to the closest car type. A service with one price gets it for every car type. \
 null only where the list says the service isn't done for that car type.
-- A range or "from R80": the lowest price.
+- A range or "from R80": the lowest price. A crossed-out price is old: take the new one next to it.
+- Extras in notes or small print ("Engine wash add R60") are services too.
+- Names in Afrikaans or another language: keep them as written.
 - "minutes": how long the service takes, from the list if it says, otherwise a realistic guess for a hand car wash \
 (a quick wash about 30, a full valet about 120), a multiple of 5.
 - No price list on the pictures: {"services": []}."""
@@ -107,7 +109,7 @@ def ask(messages: list) -> str:
         "Content-Type": "application/json",
     })
     try:
-        with urllib.request.urlopen(req, timeout=150) as resp:
+        with urllib.request.urlopen(req, timeout=180) as resp:
             return json.load(resp)["choices"][0]["message"]["content"] or ""
     except (urllib.error.URLError, TimeoutError, ValueError, KeyError, IndexError) as e:
         detail = e.read()[:500] if isinstance(e, urllib.error.HTTPError) else ""
