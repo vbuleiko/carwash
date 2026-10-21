@@ -1,6 +1,7 @@
 """Landing page, sign up / log in, and the no-signup demo."""
 import re
 import sqlite3
+from datetime import timedelta
 
 from flask import (
     Blueprint,
@@ -21,7 +22,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from . import queries, seed, site, themes
 from .db import get_db
 from .security import client_ip, limiter
-from .utils import normalize_phone, phone_is_valid, wa_link
+from .utils import DEFAULT_TZ, format_phone, local_today, normalize_phone, phone_is_valid, ts, zone
 
 bp = Blueprint("public", __name__)
 
@@ -55,6 +56,21 @@ def landing():
     return render_template("public/landing.html")
 
 
+def _account_errors(email: str, password: str, phone: str) -> list[str]:
+    errors = []
+    if not EMAIL_RE.match(email):
+        errors.append("Enter a valid email.")
+    if len(password) < 8:
+        errors.append("Password needs at least 8 characters.")
+    if not phone_is_valid(phone):
+        errors.append("Enter your WhatsApp number so we can reach you.")
+    if not errors and get_db().execute("SELECT 1 FROM tenants WHERE email = ?", (email,)).fetchone():
+        errors.append("This email already has an account. Log in instead.")
+    if not errors and not limiter.allow(f"signup:{client_ip()}", 5, 3600):
+        errors.append("Too many sign-ups from this network. Try again in an hour.")
+    return errors
+
+
 @bp.route("/signup", methods=["GET", "POST"])
 def signup():
     form = {}
@@ -66,20 +82,9 @@ def signup():
         email = form.get("email", "").strip().lower()[:120]
         password = form.get("password", "")
         phone = normalize_phone(form.get("phone"), "27")
-        errors = []
-        if not name:
-            errors.append("Enter your car wash name.")
-        if not EMAIL_RE.match(email):
-            errors.append("Enter a valid email.")
-        if len(password) < 8:
-            errors.append("Password needs at least 8 characters.")
-        if not phone_is_valid(phone):
-            errors.append("Enter your WhatsApp number so we can reach you.")
+        errors = [] if name else ["Enter your car wash name."]
+        errors = errors or _account_errors(email, password, phone)
         db = get_db()
-        if not errors and db.execute("SELECT 1 FROM tenants WHERE email = ?", (email,)).fetchone():
-            errors.append("This email already has an account. Log in instead.")
-        if not errors and not limiter.allow(f"signup:{client_ip()}", 5, 3600):
-            errors.append("Too many sign-ups from this network. Try again in an hour.")
         if not errors:
             try:
                 with db:
@@ -130,9 +135,16 @@ def logout():
     return redirect(url_for("public.landing"))
 
 
+def _made_for(slug: str):
+    """The car wash whose website the demo was opened from, if it still has no owner."""
+    tenant = get_db().execute("SELECT * FROM tenants WHERE slug = ?", (slug,)).fetchone() if slug else None
+    return tenant if tenant and queries.is_prospect(tenant) and not tenant["is_disabled"] else None
+
+
 @bp.post("/demo")
 def demo():
     db = get_db()
+    made_for = _made_for(request.form.get("site", ""))
 
     def go(tenant_id):
         if request.form.get("next") == "book":
@@ -143,17 +155,19 @@ def demo():
     current = session.get("tenant_id")
     if current and db.execute(
         "SELECT 1 FROM tenants WHERE id = ? AND is_demo = 1 AND session_key = ? AND session_key != '' "
-        "AND created_at >= ?",
-        (current, session.get("key", ""), seed.demo_cutoff()),
+        "AND created_at >= ? AND name = ?",
+        (current, session.get("key", ""), seed.demo_cutoff(), seed.demo_name(made_for)),
     ).fetchone():
         return go(current)
     if not limiter.allow(f"demo:{client_ip()}", 10, 3600):
         flash("Too many demos from this network. Try again later.", "error")
         return redirect(url_for("public.landing"))
     with db:
-        tenant_id = seed.create_demo(db, theme=themes.picked())
+        tenant_id = seed.create_demo(db, theme=themes.picked(), made_for=made_for)
         seed.cleanup_demos(db)
     _start_session(tenant_id)
+    if made_for:
+        session["made_for"] = made_for["slug"]
     return go(tenant_id)
 
 
@@ -170,32 +184,62 @@ def theme():
     return themes.remember(resp, name) if name in themes.THEMES else resp
 
 
-def _prospect(slug: str):
+def _site(slug: str):
     tenant = get_db().execute("SELECT * FROM tenants WHERE slug = ?", (slug,)).fetchone()
-    if g.host or tenant is None or not queries.is_prospect(tenant):
+    if g.host:
         abort(404)
     return site.use(tenant)
 
 
 @bp.get("/site/<slug>")
 def website(slug):
-    """The website we made for a car wash before it signed up: its owner gets the link and picks a look."""
-    tenant = _prospect(slug)
+    """A car wash's website on our address. Before it has an owner, the owner-to-be gets the link,
+    tries the looks and makes it theirs."""
+    tenant = _site(slug)
     look = themes.current()
     files = {"theme.css": f"themes/{look}.css"}
-    return site.website(tenant, lambda name: url_for("static", filename=files.get(name, name)), look, preview=True)
+    return site.website(tenant, lambda name: url_for("static", filename=files.get(name, name)), look,
+                        preview=queries.is_prospect(tenant))
 
 
-@bp.get("/site/<slug>/pick")
-def website_pick(slug):
-    """"I like this look": a WhatsApp to us, with the look and the car wash."""
-    tenant = _prospect(slug)
-    number = current_app.config["SUPPORT_WHATSAPP"]
-    if not number:
-        abort(404)
-    look = themes.THEMES[themes.current()]["name"]
-    page = url_for(".website", slug=slug, _external=True)
-    return redirect(wa_link(number, f"Hi! This is {tenant['name']}. We like the {look} look for our website: {page}"))
+@bp.route("/site/<slug>/claim", methods=["GET", "POST"])
+def claim(slug):
+    """The owner takes the website we made: their login, the look they picked, the free pilot from today."""
+    tenant = _site(slug)
+    if not queries.is_prospect(tenant):
+        flash(f"{tenant['name']} already has an owner. Log in instead.", "error")
+        return redirect(url_for(".login"))
+    days = current_app.config["PILOT_DAYS"]
+    form = {"phone": format_phone(tenant["phone"])}
+    if request.method == "POST":
+        form = request.form
+        email = form.get("email", "").strip().lower()[:120]
+        password = form.get("password", "")
+        phone = normalize_phone(form.get("phone"), "27")
+        errors = _account_errors(email, password, phone)
+        if not errors:
+            db = get_db()
+            until = local_today(zone(DEFAULT_TZ)) + timedelta(days=days)
+            try:
+                with db:
+                    taken = db.execute(
+                        "UPDATE tenants SET email = ?, password_hash = ?, phone = ?, theme = ?, plan = 'trial', "
+                        "paid_until = ?, created_at = ? WHERE id = ? AND email IS NULL",
+                        (email, generate_password_hash(password), phone, themes.current(), until.isoformat(),
+                         ts(), tenant["id"]),
+                    ).rowcount
+            except sqlite3.IntegrityError:  # the same email at the same moment
+                taken = 0
+            if taken:
+                queries.session_key(db, tenant["id"], rotate=True)
+                _start_session(tenant["id"])
+                flash(f"{tenant['name']} is yours. Free until {until:%d %b %Y}. "
+                      "Your website and booking page are under Bookings.")
+                return redirect(url_for("owner.board"))
+            errors = ["Someone has just taken this car wash, or this email already has an account."]
+        for e in errors:
+            flash(e, "error")
+    return render_template("site/claim.html", t=tenant, form=form, days=days)
 
 
 @bp.get("/privacy")

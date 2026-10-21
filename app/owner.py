@@ -455,6 +455,7 @@ def booking_list():
         "app/bookings.html", bookings=found, page_url=url, page_label=url.split("://", 1)[-1].rstrip("/"),
         share=queries.chat_link(g.tenant, "", f"Book your car wash at {g.tenant['name']} online: {url}"),
         can_book=bookings.can_book(g.tenant, g.today), statuses=bookings.STATUS_LABELS,
+        website_url=site.website_url(g.tenant),
     )
 
 

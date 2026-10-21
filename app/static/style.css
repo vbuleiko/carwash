@@ -255,6 +255,7 @@ dialog.scanner .row { margin-top: 12px; }
 .share-text a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .share .flash { margin: 0 0 12px; }
 .share-actions { margin: 0; }
+.share-site { margin: 12px 0 0; overflow-wrap: anywhere; }
 .booking-note { display: flex; align-items: center; gap: .5em; margin: 0; padding: 8px 12px; border-radius: 10px; background: var(--accent-soft); font-size: .9rem; }
 .booking-note .icon { color: var(--accent); }
 .hours-row { display: grid; grid-template-columns: 74px 1fr 1fr; gap: 8px; align-items: center; }
@@ -518,7 +519,7 @@ body.site { background: var(--bg); }
   .book-form, .book-split > .book-closed { margin-top: 36px; }
 }
 
-/* ready-made website for a car wash's own hosting */
+/* ready-made website: on our address or the car wash's own hosting */
 .website .how { max-width: 920px; }
 .web-hero { max-width: 760px; margin: 0 auto; padding: 64px 20px 40px; border-bottom: 0; text-align: center; }
 .web-hero h1 { margin-bottom: .5rem; }
@@ -531,6 +532,12 @@ body.site { background: var(--bg); }
 .web-more, .web-find { text-align: center; }
 .web-more { margin: 18px 0 0; }
 .web-find p { margin: 0 0 14px; color: var(--muted); }
+.website .web-yours { max-width: 640px; width: calc(100% - 32px); margin: 24px auto; padding: 28px 20px 18px; background: var(--card); border: 1px solid var(--accent); border-radius: var(--radius); }
+.web-yours .eyebrow, .web-price { text-align: center; }
+.web-yours h2 { margin-bottom: .4rem; }
+.web-yours .ticks { margin: 0 0 16px; }
+.web-price { margin: 0; color: var(--muted); }
+.web-price b { color: var(--text); }
 
 /* landing: booking page teaser */
 .promo { max-width: 1080px; margin: 0 auto; padding: 40px 20px; display: grid; grid-template-columns: .85fr 1.15fr; gap: 48px; align-items: center; }

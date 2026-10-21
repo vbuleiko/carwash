@@ -98,13 +98,18 @@ def demo_slug(db) -> str:
             return slug
 
 
-def create_demo(db, now=None, theme="") -> int:
-    """A sandbox car wash with two weeks of history, a few cars on the board and some bookings."""
-    tenant_id = create_tenant(db, name="Sunshine Car Wash (demo)", is_demo=True, theme=theme,
-                              slug=demo_slug(db))
+def demo_name(made_for=None) -> str:
+    return f"{made_for['name'] if made_for else 'Sunshine Car Wash'} (demo)"
+
+
+def create_demo(db, now=None, theme="", made_for=None) -> int:
+    """A sandbox car wash with two weeks of history, a few cars on the board and some bookings;
+    made_for: the car wash whose website it was opened from, so its owner sees their own name."""
+    tenant_id = create_tenant(db, name=demo_name(made_for), is_demo=True, theme=theme, slug=demo_slug(db))
+    city, address = (made_for["city"], made_for["address"]) if made_for else ("Johannesburg", "21 Main Road, Rosebank")
     db.execute(
         "UPDATE tenants SET review_url = ?, city = ?, address = ? WHERE id = ?",
-        ("https://g.page/r/your-car-wash/review", "Johannesburg", "21 Main Road, Rosebank", tenant_id),
+        ("https://g.page/r/your-car-wash/review", city, address, tenant_id),
     )
     tenant = db.execute("SELECT * FROM tenants WHERE id = ?", (tenant_id,)).fetchone()
     rng = random.Random(tenant_id)
