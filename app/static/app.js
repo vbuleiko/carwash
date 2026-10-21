@@ -113,9 +113,46 @@
     // a second tap while a slow network still sends the first one would add the car (or booking) twice
     if (Date.now() - (f.sentAt || 0) < 10000) e.preventDefault();
     else f.sentAt = Date.now();
+    const btn = f.dataset.busy && f.querySelector("button");
+    if (btn) {
+      btn.dataset.idle = btn.dataset.idle || btn.textContent;
+      btn.textContent = f.dataset.busy;  // reading a price list takes a while
+    }
   });
   window.addEventListener("pageshow", (e) => {
-    if (e.persisted) document.querySelectorAll("form").forEach((f) => { f.sentAt = 0; });  // came back with "Back"
+    if (!e.persisted) return;  // came back with "Back"
+    document.querySelectorAll("form").forEach((f) => { f.sentAt = 0; });
+    document.querySelectorAll("[data-idle]").forEach((b) => { b.textContent = b.dataset.idle; });
+  });
+
+  // --- price list photos: smaller before they go (mobile data is dear) ---------------
+  const photo = /^image\/(jpeg|png|webp)$/;
+  function shrink(file) {
+    if (!photo.test(file.type)) return Promise.resolve(file);
+    return createImageBitmap(file).then((bmp) => {
+      const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+      if (k === 1 && file.size < 1500000) return file;
+      const c = Object.assign(document.createElement("canvas"),
+        { width: Math.round(bmp.width * k), height: Math.round(bmp.height * k) });
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#fff";  // a see-through PNG would turn black in a JPEG
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(bmp, 0, 0, c.width, c.height);
+      return new Promise((ok) => c.toBlob((b) => ok(b && b.size < file.size
+        ? new File([b], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file), "image/jpeg", 0.85));
+    }).catch(() => file);
+  }
+  document.querySelectorAll("input[data-shrink]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const files = [...input.files], btn = input.form.querySelector("button");
+      if (!window.DataTransfer || !window.createImageBitmap || !files.some((f) => photo.test(f.type))) return;
+      btn.disabled = true;
+      Promise.all(files.map(shrink)).then((out) => {
+        const dt = new DataTransfer();
+        out.forEach((f) => dt.items.add(f));
+        input.files = dt.files;
+      }).catch(() => null).finally(() => { btn.disabled = false; });
+    });
   });
 
   // --- look switch: no reload, so the page stays where it is ---------------------

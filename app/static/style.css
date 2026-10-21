@@ -81,6 +81,11 @@ input, select, textarea {
   background: var(--card); color: var(--text); font: inherit;
 }
 textarea { min-height: 90px; resize: vertical; }
+input[type=file] { padding: .45em; cursor: pointer; }
+input[type=file]::file-selector-button {
+  margin-right: .75em; padding: .4em .9em; border: 1px solid var(--line); border-radius: inherit;
+  background: var(--bg); color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+}
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
 .input-plate { font-size: 1.35rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .field { display: flex; flex-direction: column; gap: .3rem; border: 0; margin: 0; padding: 0; min-width: 0; }
