@@ -214,8 +214,8 @@ sudo docker compose exec notify flask --app app report   # отчёт на по�
 - Проверено до деплоя: 63 теста; локальный SMTP-сервер (STARTTLS с проверкой сертификата, 465, неверный пароль → тайм-аут и повтор); `docker compose` с `app` и `notify`.
 
 ## Сервер (на 16.10.2026)
-- Google Cloud, проект **`carwasheasy-511812`** (в аккаунте пользователя есть ещё пустой «My First Project» — виртуалки там нет). Имя и зона виртуалки — `gcloud compute instances list`.
-- Зайти: Cloud Shell → `gcloud config set project carwasheasy-511812` → `gcloud compute ssh <имя> --zone=<зона>` (или консоль → Compute Engine → VM instances → SSH). Сам Cloud Shell — другая машина, папки проекта там нет; после переподключения он может сбросить проект.
+- Google Cloud, проект **`carwasheasy-511812`** (в аккаунте пользователя есть ещё пустой «My First Project» — виртуалки там нет). Виртуалка **`washbook`**, зона **`africa-south1-a`**.
+- Зайти: Cloud Shell → `gcloud config set project carwasheasy-511812` → `gcloud compute ssh washbook --zone=africa-south1-a` (или консоль → Compute Engine → VM instances → SSH). Сам Cloud Shell — другая машина, папки проекта там нет; после переподключения он может сбросить проект.
 - Код в `~/carwash` на виртуалке, `.env` там же (не в git). Обновление: `bash deploy/update.sh` (берёт `main`).
 - Контакты на сайте (подвал лендинга, `/privacy`, «Forgot your password?» на `/login`, «Subscribe on WhatsApp» в настройках) берутся только из `.env`: `SUPPORT_EMAIL=admin@carwasheasy.co.za`, `SUPPORT_WHATSAPP=27687826672` (+27 68 782 6672, решение 16.10.2026). После правки `.env` — `sudo docker compose up -d`. На живом сайте проверено 16.10.2026; тогда же в `.env` исправлен `APP_NAME` (сайт ещё показывал Washbook).
 
