@@ -120,6 +120,12 @@ def test_replace_keeps_history(owner, reader, db):
                              (now["wash & go"]["id"],)).fetchall())
     assert prices == {types[0]: 8000, types[1]: 9500}
     assert b"Some numbers were wrong" in owner.get("/app/settings/prices").data
+    assert b'class="step-done"' in owner.get("/app/").data
+
+
+def test_new_owner_goes_back_to_the_board(owner, reader):
+    resp = owner.post("/app/settings/prices/import", {"name_0": "Wash", "welcome": "1"})
+    assert resp.location.endswith("/app/")
 
 
 def test_demo_cannot_read(browser, reader):

@@ -8,14 +8,20 @@
   <a class="btn primary big" href="{{ url_for('owner.new_visit') }}">{{ icon('plus') }} New car</a>
 </section>
 
-{% if first_run %}
+{% if steps %}
 <section class="card onboarding">
   <h2>Get set up in 2 minutes</h2>
-  <ol>
-    <li><a href="{{ url_for('owner.settings_prices') }}">Check your price list</a> — we filled in typical prices.</li>
-    <li><a href="{{ url_for('owner.settings_staff') }}">Add your washers</a> — to see who's fastest.</li>
-    <li><a href="{{ url_for('owner.settings_business') }}">Add your Google review link</a> — to ask happy customers for reviews.</li>
-    <li><a href="{{ url_for('owner.new_visit') }}">Add your first car</a>.</li>
+  <ol class="setup-steps">
+    <li class="{{ 'step-done' if steps.prices }}"><span class="step-mark">{{ icon('check') if steps.prices else 1 }}</span><span><a href="{{ url_for('owner.settings_prices') }}">Check your price list</a>{% if not steps.prices %} — we filled in typical prices.{% endif %}</span></li>
+    <li class="{{ 'step-done' if steps.hours }}"><span class="step-mark">{{ icon('check') if steps.hours else 2 }}</span><span><a href="{{ url_for('owner.settings_booking') }}">Set your opening hours</a> — customers book online only when you're open.</span></li>
+    <li class="{{ 'step-done' if steps.link }}"><span class="step-mark">{{ icon('check') if steps.link else 3 }}</span><span>Copy the link to your booking page — customers book with it.
+      <form method="post" action="{{ url_for('owner.setup_link') }}" class="copy-link" data-copy="{{ page_url }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <a href="{{ page_url }}" target="_blank" rel="noopener">{{ page_url.split('://', 1)[-1].rstrip('/') }}</a>
+        <button class="btn">Copy</button>
+      </form></span></li>
+    <li class="{{ 'step-done' if steps.washers }}"><span class="step-mark">{{ icon('check') if steps.washers else 4 }}</span><span><a href="{{ url_for('owner.settings_staff') }}">Add your washers</a> — to see who's fastest.</span></li>
+    <li class="{{ 'step-done' if steps.car }}"><span class="step-mark">{{ icon('check') if steps.car else 5 }}</span><span><a href="{{ url_for('owner.new_visit') }}">Add your first car</a>.</span></li>
   </ol>
 </section>
 {% endif %}

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     booking_on    INTEGER NOT NULL DEFAULT 1,
     msg_booking   TEXT NOT NULL DEFAULT '',
     msg_cancel    TEXT NOT NULL DEFAULT '',
+    setup         TEXT NOT NULL DEFAULT '',        -- first steps done, e.g. "prices link"
     plan          TEXT NOT NULL DEFAULT 'trial',   -- trial | paid
     paid_until    TEXT NOT NULL,                   -- YYYY-MM-DD, inclusive
     is_demo       INTEGER NOT NULL DEFAULT 0,
@@ -194,6 +195,7 @@ ADDED_COLUMNS = [
     ("tenants", "msg_cancel", "TEXT NOT NULL DEFAULT ''"),
     ("tenants", "domain", "TEXT NOT NULL DEFAULT ''"),
     ("tenants", "maps_url", "TEXT NOT NULL DEFAULT ''"),
+    ("tenants", "setup", "TEXT NOT NULL DEFAULT ''"),
     ("services", "minutes", "INTEGER NOT NULL DEFAULT 30"),
     ("bookings", "minutes", "INTEGER NOT NULL DEFAULT 30"),
     ("bookings", "cancelled_by", "TEXT NOT NULL DEFAULT ''"),
@@ -240,6 +242,8 @@ def init_db(path: str):
     for table, column, decl in ADDED_COLUMNS:
         if column not in {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+            if column == "setup":  # car washes already at work: no first steps for these
+                conn.execute("UPDATE tenants SET setup = 'prices link' WHERE id IN (SELECT tenant_id FROM visits)")
     for table, column in DROPPED_COLUMNS:
         if column in {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}:
             conn.execute(f"ALTER TABLE {table} DROP COLUMN {column}")

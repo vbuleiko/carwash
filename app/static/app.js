@@ -125,6 +125,37 @@
     document.querySelectorAll("[data-idle]").forEach((b) => { b.textContent = b.dataset.idle; });
   });
 
+  // --- "Copy" the booking page link on the board ----------------------------------
+  function copyOld(text) {  // no Clipboard API on plain http and older phones
+    const box = document.createElement("textarea");
+    box.value = text;
+    box.setAttribute("readonly", "");
+    box.style.cssText = "position: fixed; top: 0; left: 0; opacity: 0;";
+    document.body.append(box);
+    box.select();
+    box.setSelectionRange(0, text.length);
+    const ok = document.execCommand("copy");
+    box.remove();
+    return ok;
+  }
+  document.querySelectorAll("form[data-copy]").forEach((form) => {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const url = form.dataset.copy;
+      const copied = navigator.clipboard
+        ? navigator.clipboard.writeText(url).then(() => true, () => copyOld(url))
+        : Promise.resolve(copyOld(url));
+      copied.then((ok) => {
+        if (!ok) return alert("Couldn't copy. Press and hold the link to copy it.");
+        form.querySelector("button").textContent = "Copied";
+        post(form.action);
+        const step = form.closest("li");
+        step.classList.add("step-done");
+        step.querySelector(".step-mark").innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      });
+    });
+  });
+
   // --- price list photos: smaller before they go (mobile data is dear) ---------------
   const photo = /^image\/(jpeg|png|webp)$/;
   function shrink(file) {

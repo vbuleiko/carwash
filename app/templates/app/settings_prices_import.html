@@ -1,11 +1,12 @@
 {% extends "app/layout.html" %}
 {% from "_macros.html" import icon %}
 {% block page_title %}Check your price list{% endblock %}
-{% block top_left %}<a class="topbar-back" href="{{ url_for('owner.settings_prices_upload') }}">{{ icon('back') }} Check prices</a>{% endblock %}
+{% block top_left %}<a class="topbar-back" href="{{ url_for('owner.settings_prices_upload', welcome=1 if welcome else None) }}">{{ icon('back') }} Check prices</a>{% endblock %}
 {% block content %}
 <p class="muted small">We found {{ rows|length }} service{{ '' if rows|length == 1 else 's' }}. Fix anything that's wrong. Clear a name to leave that service out; leave a price empty if you don't do it for that car type.</p>
 <form method="post" action="{{ url_for('owner.settings_prices_import') }}" class="stack" data-confirm="Replace your price list with these {{ rows|length }} services?">
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  {% if welcome %}<input type="hidden" name="welcome" value="1">{% endif %}
   {% for r in rows %}{% set i = loop.index0 %}
   <section class="card stack">
     <input name="name_{{ i }}" value="{{ r.name }}" maxlength="40" class="strong" aria-label="Service name">

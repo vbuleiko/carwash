@@ -130,12 +130,41 @@ def board():
     washers = db.execute(
         "SELECT * FROM washers WHERE tenant_id = ? AND active = 1 ORDER BY name", (_tid(),)
     ).fetchall()
-    first_run = not db.execute("SELECT 1 FROM visits WHERE tenant_id = ? LIMIT 1", (_tid(),)).fetchone()
     booked = [bookings.add_links(g.tenant, b) for b in bookings.between(db, _tid(), start, end, open_only=True)]
     return render_template(
-        "app/board.html", lanes=lanes, cars=cars, revenue=revenue, washers=washers, first_run=first_run,
-        booked=booked,
+        "app/board.html", lanes=lanes, cars=cars, revenue=revenue, washers=washers, steps=_first_steps(db),
+        booked=booked, page_url=site.page_url(g.tenant),
     )
+
+
+def _first_steps(db) -> dict | None:
+    """What a new owner has done of the setup list on the board; None once all of it is done."""
+    if g.tenant["is_demo"]:
+        return None
+    done = g.tenant["setup"].split()
+    exists = lambda table: db.execute(f"SELECT 1 FROM {table} WHERE tenant_id = ? LIMIT 1", (_tid(),)).fetchone()
+    steps = {
+        "prices": "prices" in done,
+        "hours": bool(g.tenant["hours"]),
+        "link": "link" in done,
+        "washers": bool(exists("washers")),
+        "car": bool(exists("visits")),
+    }
+    return None if all(steps.values()) else steps
+
+
+def _step_done(db, step: str):
+    done = g.tenant["setup"].split()
+    if step not in done:
+        db.execute("UPDATE tenants SET setup = ? WHERE id = ?", (" ".join(done + [step]), _tid()))
+
+
+@bp.post("/setup/link")
+def setup_link():
+    db = get_db()
+    with db:
+        _step_done(db, "link")
+    return _done()
 
 
 # --- visits -------------------------------------------------------------------
@@ -661,6 +690,7 @@ def settings_prices():
             if new_service:
                 db.execute("INSERT INTO services (tenant_id, name, sort) VALUES (?, ?, ?)",
                            (_tid(), new_service, len(services)))
+            _step_done(db, "prices")
         if bad:
             flash("Some numbers were wrong and were skipped: " + ", ".join(bad), "error")
         else:
@@ -697,7 +727,7 @@ def settings_prices_upload():
         except menu.Unreadable as e:
             flash(str(e), "error")
         else:
-            return render_template("app/settings_prices_import.html", car_types=car_types, rows=rows)
+            return render_template("app/settings_prices_import.html", car_types=car_types, rows=rows, welcome=welcome)
     return render_template("app/settings_prices_upload.html", welcome=welcome)
 
 
@@ -727,10 +757,11 @@ def settings_prices_import():
     db = get_db()
     with db:
         queries.replace_price_list(db, _tid(), rows, [t["id"] for t in car_types])
+        _step_done(db, "prices")
     if bad:
         flash("Some numbers were wrong and were left empty: " + ", ".join(bad), "error")
     flash(f"Your price list is in: {len(rows)} service{'' if len(rows) == 1 else 's'}.")
-    return redirect(url_for(".settings_prices"))
+    return redirect(url_for(".board" if f.get("welcome") == "1" else ".settings_prices"))
 
 
 @bp.route("/settings/staff", methods=["GET", "POST"])

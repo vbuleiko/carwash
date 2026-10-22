@@ -105,6 +105,27 @@ def test_signup_seeds_price_list_and_trial(owner, db):
                       "WHERE s.tenant_id = ?", (t["id"],)).fetchone()[0] == 20
 
 
+def test_first_steps_tick_off_and_go(owner, db):
+    def ticked():
+        return len(re.findall(rb'class="step-done"', owner.get("/app/").data))
+
+    board = owner.get("/app/").data
+    assert b"Get set up" in board and b"/book/bubbles-car-wash" in board and b"review" not in board
+    add_car(owner, db)
+    owner.post("/app/setup/link")
+    owner.post("/app/settings/staff", {"new_name": "Sipho"})
+    assert ticked() == 3
+    open_all_week(owner)
+    assert ticked() == 4
+    owner.post("/app/settings/prices", {})
+    assert b"Get set up" not in owner.get("/app/").data
+
+
+def test_demo_has_no_first_steps(browser):
+    browser.post("/demo")
+    assert b"Get set up" not in browser.get("/app/").data
+
+
 def test_duplicate_email_and_login(browser):
     signup(browser)
     browser.post("/logout")
