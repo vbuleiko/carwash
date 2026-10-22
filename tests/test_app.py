@@ -122,13 +122,23 @@ def test_first_setup_step_by_step(browser, db):
     t = db.execute("SELECT * FROM tenants").fetchone()
     assert json.loads(t["hours"]) == [["07:00", "18:00"], None, None, None, None, None, None]
 
-    browser.get("/app/setup/staff")
-    resp = browser.post("/app/setup/staff", {"names": "Sipho\n  thabo \nSIPHO\n\n"})
+    assert b'name="name_0"' not in browser.get("/app/setup/staff").data  # how many first
+    page = browser.post("/app/setup/staff", {"resize": "2", "name_0": "Sipho"}).data  # "+" without JavaScript
+    assert b'value="Sipho"' in page and b'name="name_1"' in page and b'name="name_2"' not in page
+    resp = browser.post("/app/setup/staff", {"name_0": "Sipho", "name_1": "  thabo ", "name_2": "SIPHO"})
     assert browser.get(resp.location).location.endswith("/app/setup/look")
     assert [r[0] for r in db.execute("SELECT name FROM washers ORDER BY id")] == ["Sipho", "thabo"]
 
-    look = browser.get("/app/setup/look").data
-    assert b"Step 4 of 4" in look and b"/site/bubbles-car-wash" in look
+    look = browser.get("/app/setup/look")
+    assert b"Step 4 of 4" in look.data and b'src="/site/bubbles-car-wash?embed=1"' in look.data
+    assert b'src="/book/bubbles-car-wash?embed=1"' in look.data and b"Your own design" in look.data
+    assert b"wa.me/27820000000?text=Hello" in look.data
+    shown = browser.get("/book/bubbles-car-wash?embed=1")
+    assert b"owner-bar" not in shown.data and shown.headers["X-Frame-Options"] == "SAMEORIGIN"
+    assert "frame-ancestors 'self'" in shown.headers["Content-Security-Policy"]
+    assert b"owner-bar" in browser.get("/book/bubbles-car-wash").data
+    assert browser.get("/site/bubbles-car-wash?embed=1").headers["X-Frame-Options"] == "SAMEORIGIN"
+    assert look.headers["X-Frame-Options"] == "DENY"
     resp = browser.post("/app/settings/theme", {"theme": "noir", "next": "/app/setup/look"})
     assert resp.location.endswith("/app/setup/look")
     resp = browser.post("/app/setup/next", {"step": "look"})

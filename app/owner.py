@@ -6,6 +6,7 @@ from datetime import timedelta
 from flask import (
     Blueprint,
     abort,
+    current_app,
     flash,
     g,
     jsonify,
@@ -200,28 +201,42 @@ def setup_hours():
     return render_template("app/setup_hours.html", rows=rows, times=bookings.TIMES)
 
 
+MAX_WASHERS = 20
+
+
 @bp.route("/setup/staff", methods=["GET", "POST"])
 def setup_staff():
     db = get_db()
     have = [r["name"] for r in db.execute("SELECT name FROM washers WHERE tenant_id = ? AND active = 1 ORDER BY id",
                                           (_tid(),))]
-    if request.method == "POST":
+    f = request.form
+    names = [" ".join(f.get(f"name_{i}", "").split())[:30] for i in range(MAX_WASHERS)]
+    if request.method == "POST" and "resize" not in f:
         seen = {n.casefold() for n in have}
         with db:
-            for line in request.form.get("names", "").splitlines()[:50]:
-                name = " ".join(line.split())[:30]
+            for name in names:
                 if name and name.casefold() not in seen:
                     seen.add(name.casefold())
                     db.execute("INSERT INTO washers (tenant_id, name, created_at) VALUES (?, ?, ?)",
                                (_tid(), name, ts()))
             to = _setup_next(db, "staff")
         return redirect(to)
-    return render_template("app/setup_staff.html", have=have)
+    count = int(f["resize"]) if is_number(f.get("resize", "")) else 0  # − and + without JavaScript
+    return render_template("app/setup_staff.html", have=have, names=names,
+                           count=min(count, MAX_WASHERS), most=MAX_WASHERS)
 
 
 @bp.get("/setup/look")
 def setup_look():
-    return render_template("app/setup_look.html", **_links())
+    name = g.tenant["name"]
+    own = current_app.config["SUPPORT_WHATSAPP"]
+    return render_template(
+        "app/setup_look.html",
+        website=url_for("public.website", slug=g.tenant["slug"], embed=1),
+        page=url_for("site.page", slug=g.tenant["slug"], embed=1),
+        own_design=wa_link(own, f"Hello! I'd like you to make a unique design for the website of my car wash, {name}.")
+        if own else "",
+    )
 
 
 @bp.get("/setup/done")

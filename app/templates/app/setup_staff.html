@@ -4,13 +4,25 @@
 {% block tabbar %}{% endblock %}
 {% block content %}
 {{ setup_head('staff') }}
-<form method="post" class="stack">
+<form method="post" class="stack" data-washers>
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
   <section class="card stack">
     <h2>Who washes the cars?</h2>
     <p class="muted">When a car starts, you tap who's washing it. Reports then show who's fastest. Washers don't need phones or logins.</p>
     {% if have %}<p class="small">Added: {{ have|join(', ') }}</p>{% endif %}
-    <label class="field"><span>Names, one per line</span><textarea name="names" rows="5" maxlength="1500" placeholder="Sipho&#10;Thabo&#10;Lerato"></textarea></label>
+    <div class="stepper-row">
+      <span>How many washers?</span>
+      <div class="stepper">
+        <button class="btn" name="resize" value="{{ count - 1 }}" aria-label="Fewer washers" {{ 'disabled' if count == 0 }}>−</button>
+        <output aria-live="polite">{{ count }}</output>
+        <button class="btn" name="resize" value="{{ count + 1 }}" aria-label="More washers" data-most="{{ most }}" {{ 'disabled' if count >= most }}>+</button>
+      </div>
+    </div>
+    <div class="washer-names stack">
+      {% for i in range(count) %}
+      <label class="field"><span>Washer {{ i + 1 }}</span><input name="name_{{ i }}" value="{{ names[i] }}" maxlength="30" autocomplete="off" placeholder="Name"></label>
+      {% endfor %}
+    </div>
   </section>
   <button class="btn primary big wide">Next</button>
 </form>
