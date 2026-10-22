@@ -35,6 +35,7 @@
   {% block content %}{% endblock %}
 </main>
 
+{% block tabbar %}
 <nav class="tabbar" aria-label="Main">
   {% set ep = request.endpoint or '' %}
   <a href="{{ url_for('owner.board') }}" class="{{ 'on' if ep in ('owner.board', 'owner.new_visit', 'owner.visit') }}">{{ icon('board') }}<span>Board</span></a>
@@ -43,6 +44,7 @@
   <a href="{{ url_for('owner.report') }}" class="{{ 'on' if ep == 'owner.report' }}">{{ icon('chart') }}<span>Reports</span></a>
   <a href="{{ url_for('owner.settings') }}" class="{{ 'on' if ep.startswith('owner.settings') }}">{{ icon('gear') }}<span>Settings</span></a>
 </nav>
+{% endblock %}
 
 {% if g.sub.demo %}{{ preview_dialog("In your real account this opens WhatsApp with the message ready — you just tap Send.") }}{% endif %}
 {% endblock %}

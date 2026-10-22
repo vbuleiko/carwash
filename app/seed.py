@@ -30,8 +30,8 @@ def create_tenant(db, *, name, email=None, password_hash=None, phone="", city=""
     today = local_today(zone(DEFAULT_TZ))
     cur = db.execute(
         "INSERT INTO tenants (name, email, password_hash, phone, city, address, msg_ready, msg_review, "
-        "msg_booking, msg_cancel, loyalty_every, paid_until, is_demo, theme, session_key, slug, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "msg_booking, msg_cancel, loyalty_every, paid_until, is_demo, theme, session_key, slug, setup, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             name, email, password_hash, phone, city, address,
             MSG_READY, MSG_REVIEW, bookings.MSG_BOOKING, bookings.MSG_CANCEL,
@@ -41,6 +41,7 @@ def create_tenant(db, *, name, email=None, password_hash=None, phone="", city=""
             theme,
             secrets.token_urlsafe(16),
             slug or bookings.unique_slug(db, name),
+            "" if is_demo else "prices",  # a new owner starts with the first setup
             ts(),
         ),
     )

@@ -67,5 +67,8 @@ def signup(browser, email="owner@example.com", name="Bubbles Car Wash"):
 def owner(browser):
     resp = signup(browser)
     assert resp.status_code == 302
+    browser.get("/app/setup")
+    for step in ("prices", "hours", "staff", "look"):  # skip the first setup
+        browser.post("/app/setup/next", {"step": step})
     browser.get("/app/")
     return browser

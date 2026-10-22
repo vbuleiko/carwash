@@ -125,6 +125,33 @@
     document.querySelectorAll("[data-idle]").forEach((b) => { b.textContent = b.dataset.idle; });
   });
 
+  // --- "Copy" a link: the last setup screen -----------------------------------------
+  function copyOld(text) {  // no Clipboard API on plain http and older phones
+    const box = document.createElement("textarea");
+    box.value = text;
+    box.setAttribute("readonly", "");
+    box.style.cssText = "position: fixed; top: 0; left: 0; opacity: 0;";
+    document.body.append(box);
+    box.select();
+    box.setSelectionRange(0, text.length);
+    const ok = document.execCommand("copy");
+    box.remove();
+    return ok;
+  }
+  document.querySelectorAll("button[data-copy]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const url = btn.dataset.copy;
+      const copied = navigator.clipboard
+        ? navigator.clipboard.writeText(url).then(() => true, () => copyOld(url))
+        : Promise.resolve(copyOld(url));
+      copied.then((ok) => {
+        if (!ok) return alert("Couldn't copy. Press and hold the link to copy it.");
+        document.querySelectorAll("button[data-copy]").forEach((b) => { b.textContent = "Copy"; });
+        btn.textContent = "Copied";
+      });
+    });
+  });
+
   // --- price list photos: smaller before they go (mobile data is dear) ---------------
   const photo = /^image\/(jpeg|png|webp)$/;
   function shrink(file) {

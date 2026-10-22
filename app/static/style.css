@@ -201,8 +201,17 @@ body.app { padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom)); }
 .visit-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
 .visit-actions .btn { min-width: 108px; }
 .done { color: var(--good); font-weight: 600; display: inline-flex; gap: .3em; align-items: center; }
-.onboarding ol { margin: 0; padding-left: 1.2em; }
-.onboarding li { margin-bottom: 6px; }
+.setup-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; font-size: .85rem; font-weight: 600; color: var(--muted); }
+.setup-bar { display: flex; gap: 4px; }
+.setup-bar i { width: 28px; height: 4px; border-radius: 2px; background: var(--line); }
+.setup-bar i.on { background: var(--accent); }
+.setup-skip { margin-top: 14px; }
+.setup-skip .link { color: var(--muted); text-decoration: underline; }
+.setup-done { align-items: flex-start; }
+.setup-done-mark { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--wa); color: var(--wa-ink); }
+.setup-done-mark .icon { width: 24px; height: 24px; }
+.copy-row { display: flex; align-items: center; gap: 10px; width: 100%; }
+.copy-text { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-wrap: anywhere; }
 
 /* dialogs */
 dialog.sheet {

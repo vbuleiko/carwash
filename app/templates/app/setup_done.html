@@ -1,0 +1,22 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import icon %}
+{% block page_title %}You're all set{% endblock %}
+{% block tabbar %}{% endblock %}
+{% block content %}
+<section class="card stack setup-done">
+  <span class="setup-done-mark">{{ icon('check') }}</span>
+  <h2>You're all set</h2>
+  <p class="muted">Your car wash is online. Copy a link and send it to your customers.</p>
+  {% for label, url in [('Your website', website_url), ('Your booking page', page_url)] %}
+  <div class="copy-row">
+    <div class="copy-text">
+      <b>{{ label }}</b>
+      <a href="{{ url }}" target="_blank" rel="noopener">{{ url.split('://', 1)[-1].rstrip('/') }}</a>
+    </div>
+    <button type="button" class="btn" data-copy="{{ url }}">Copy</button>
+  </div>
+  {% endfor %}
+  <p class="muted small">Both links are always in the Bookings tab.</p>
+</section>
+<a class="btn primary big wide" href="{{ url_for('owner.board') }}">Go to the board</a>
+{% endblock %}

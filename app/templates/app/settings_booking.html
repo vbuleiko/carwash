@@ -18,13 +18,7 @@
 
   <section class="card stack">
     <h2>Opening hours</h2>
-    {% for i, name, is_open, start, end in rows %}
-    <div class="hours-row">
-      <label class="toggle small"><input type="checkbox" name="open_{{ i }}" value="1" {{ 'checked' if is_open }}><span>{{ name[:3] }}</span></label>
-      <select name="from_{{ i }}" aria-label="{{ name }} opens">{% for tm in times %}<option {{ 'selected' if tm == start }}>{{ tm }}</option>{% endfor %}</select>
-      <select name="to_{{ i }}" aria-label="{{ name }} closes">{% for tm in times %}<option {{ 'selected' if tm == end }}>{{ tm }}</option>{% endfor %}</select>
-    </div>
-    {% endfor %}
+    {% include "app/_hours.html" %}
     <p class="muted small">Customers can pick a time every 30 minutes, up to two weeks ahead. A booking holds its place for as long as its services take (<a href="{{ url_for('owner.settings_prices') }}">Price list</a>, in whole half hours) and has to end by closing time.</p>
   </section>
 

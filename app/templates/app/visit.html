@@ -25,19 +25,17 @@
 <form method="post" id="visit-form" class="stack card" data-mode="edit">
   {% include "app/_visit_fields.html" %}
 
+  {% if washers %}
   <fieldset class="field">
     <legend>Washed by</legend>
-    {% if washers %}
     <div class="chips">
       {% set team = form.washer_ids|map('string')|list %}
       {% for w in washers %}
       <label class="chip"><input type="checkbox" name="washer_id" value="{{ w.id }}" {{ 'checked' if w.id|string in team }}><span>{{ w.name }}</span></label>
       {% endfor %}
     </div>
-    {% else %}
-    <p class="muted small"><a href="{{ url_for('owner.settings_staff') }}">Add your washers</a> first.</p>
-    {% endif %}
   </fieldset>
+  {% endif %}
 
   <input type="hidden" name="status_was" value="{{ form.status_was or v.status }}">
   <label class="field">

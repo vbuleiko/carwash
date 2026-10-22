@@ -15,7 +15,14 @@
   </a>
   <div class="visit-actions">
     {% if v.status == 'queued' %}
+      {% if washers %}
       <button type="button" class="btn" data-start="{{ url_for('owner.start', vid=v.id) }}" data-plate="{{ v.plate }}">{{ icon('play') }} Start</button>
+      {% else %}
+      <form method="post" action="{{ url_for('owner.start', vid=v.id) }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <button class="btn">{{ icon('play') }} Start</button>
+      </form>
+      {% endif %}
     {% elif v.status == 'washing' %}
       {% if v.wa_ready %}
         <a class="btn wa" href="{{ v.wa_ready }}" target="_blank" rel="noopener" data-mark="{{ url_for('owner.ready', vid=v.id) }}" data-msg="{{ v.msg_ready }}">{{ icon('chat') }} Ready</a>

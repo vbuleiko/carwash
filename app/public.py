@@ -19,7 +19,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import menu, queries, seed, site, themes
+from . import queries, seed, site, themes
 from .db import get_db
 from .security import client_ip, limiter
 from .utils import DEFAULT_TZ, format_phone, local_today, normalize_phone, parse_money, phone_is_valid, ts, zone
@@ -79,11 +79,6 @@ def _account_errors(email: str, password: str, phone: str) -> list[str]:
     return errors
 
 
-def _first_page():
-    """A new owner starts with their own price list: a photo of it is enough."""
-    return url_for("owner.settings_prices_upload", welcome=1) if menu.enabled() else url_for("owner.board")
-
-
 @bp.route("/signup", methods=["GET", "POST"])
 def signup():
     form = {}
@@ -111,7 +106,7 @@ def signup():
                 return render_template("public/signup.html", form=form, pilot=pilot, days=days)
             _start_session(tenant_id)
             flash(f"Welcome! Your {days}-day free {'pilot' if pilot else 'trial'} has started.")
-            return redirect(_first_page())
+            return redirect(url_for("owner.setup"))
         for e in errors:
             flash(e, "error")
     return render_template("public/signup.html", form=form, pilot=pilot, days=days)
@@ -237,7 +232,7 @@ def claim(slug):
                 with db:
                     taken = db.execute(
                         "UPDATE tenants SET email = ?, password_hash = ?, phone = ?, theme = ?, plan = 'trial', "
-                        "paid_until = ?, created_at = ? WHERE id = ? AND email IS NULL",
+                        "paid_until = ?, created_at = ?, setup = 'prices' WHERE id = ? AND email IS NULL",
                         (email, generate_password_hash(password), phone, themes.current(), until.isoformat(),
                          ts(), tenant["id"]),
                     ).rowcount
@@ -248,7 +243,7 @@ def claim(slug):
                 _start_session(tenant["id"])
                 flash(f"{tenant['name']} is yours. Free until {until:%d %b %Y}. "
                       "Your website and booking page are under Bookings.")
-                return redirect(_first_page())
+                return redirect(url_for("owner.setup"))
             errors = ["Someone has just taken this car wash, or this email already has an account."]
         for e in errors:
             flash(e, "error")

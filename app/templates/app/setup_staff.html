@@ -1,0 +1,18 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import setup_head, setup_skip %}
+{% block page_title %}Washers{% endblock %}
+{% block tabbar %}{% endblock %}
+{% block content %}
+{{ setup_head('staff') }}
+<form method="post" class="stack">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <section class="card stack">
+    <h2>Who washes the cars?</h2>
+    <p class="muted">When a car starts, you tap who's washing it. Reports then show who's fastest. Washers don't need phones or logins.</p>
+    {% if have %}<p class="small">Added: {{ have|join(', ') }}</p>{% endif %}
+    <label class="field"><span>Names, one per line</span><textarea name="names" rows="5" maxlength="1500" placeholder="Sipho&#10;Thabo&#10;Lerato"></textarea></label>
+  </section>
+  <button class="btn primary big wide">Next</button>
+</form>
+{{ setup_skip('staff', "We don't track washers — skip") }}
+{% endblock %}
