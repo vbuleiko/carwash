@@ -7,7 +7,7 @@
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
   {% if welcome %}<input type="hidden" name="welcome" value="1">{% endif %}
   <h2>{{ 'Start with your price list' if welcome else 'Read your price list' }}</h2>
-  <p class="muted">Take a photo of your price board or choose a PDF. We'll fill in your services and prices for every car type — you check them before anything changes.</p>
+  <p class="muted">Just snap your price board — or send a PDF. AI fills in every service and price for you. Give it a quick check and you're done.</p>
   <label class="field">
     <span>Photos or a PDF · up to 10 pages</span>
     <input type="file" name="files" accept="image/*,.pdf,application/pdf" multiple required data-shrink>
