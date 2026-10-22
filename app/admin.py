@@ -170,8 +170,8 @@ def hand_over(tid):
         until = local_today(zone(DEFAULT_TZ)) + timedelta(days=current_app.config["PILOT_DAYS"])
         with db:
             db.execute(
-                "UPDATE tenants SET email = ?, password_hash = ?, theme = ?, plan = 'trial', paid_until = ? "
-                "WHERE id = ?",
+                "UPDATE tenants SET email = ?, password_hash = ?, theme = ?, plan = 'trial', paid_until = ?, "
+                "setup = 'prices' WHERE id = ?",
                 (email, generate_password_hash(password), look if look in themes.THEMES else tenant["theme"],
                  until.isoformat(), tid),
             )

@@ -45,3 +45,19 @@
   </div>
 </dialog>
 {%- endmacro %}
+
+{% macro setup_head(step) -%}
+{% set n = ['prices', 'hours', 'staff', 'look'].index(step) + 1 %}
+<div class="setup-head">
+  <span>Step {{ n }} of 4</span>
+  <span class="setup-bar" aria-hidden="true">{% for i in range(4) %}<i class="{{ 'on' if i < n }}"></i>{% endfor %}</span>
+</div>
+{%- endmacro %}
+
+{% macro setup_skip(step, label) -%}
+<form method="post" action="{{ url_for('owner.setup_next') }}" class="center setup-skip">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="step" value="{{ step }}">
+  <button class="link">{{ label }}</button>
+</form>
+{%- endmacro %}

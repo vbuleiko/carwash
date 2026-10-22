@@ -8,24 +8,6 @@
   <a class="btn primary big" href="{{ url_for('owner.new_visit') }}">{{ icon('plus') }} New car</a>
 </section>
 
-{% if steps %}
-<section class="card onboarding">
-  <h2>Get set up in 2 minutes</h2>
-  <ol class="setup-steps">
-    <li class="{{ 'step-done' if steps.prices }}"><span class="step-mark">{{ icon('check') if steps.prices else 1 }}</span><span><a href="{{ url_for('owner.settings_prices') }}">Check your price list</a>{% if not steps.prices %} — we filled in typical prices.{% endif %}</span></li>
-    <li class="{{ 'step-done' if steps.hours }}"><span class="step-mark">{{ icon('check') if steps.hours else 2 }}</span><span><a href="{{ url_for('owner.settings_booking') }}">Set your opening hours</a> — customers book online only when you're open.</span></li>
-    <li class="{{ 'step-done' if steps.link }}"><span class="step-mark">{{ icon('check') if steps.link else 3 }}</span><span>Copy the link to your booking page — customers book with it.
-      <form method="post" action="{{ url_for('owner.setup_link') }}" class="copy-link" data-copy="{{ page_url }}">
-        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-        <a href="{{ page_url }}" target="_blank" rel="noopener">{{ page_url.split('://', 1)[-1].rstrip('/') }}</a>
-        <button class="btn">Copy</button>
-      </form></span></li>
-    <li class="{{ 'step-done' if steps.washers }}"><span class="step-mark">{{ icon('check') if steps.washers else 4 }}</span><span><a href="{{ url_for('owner.settings_staff') }}">Add your washers</a> — to see who's fastest.</span></li>
-    <li class="{{ 'step-done' if steps.car }}"><span class="step-mark">{{ icon('check') if steps.car else 5 }}</span><span><a href="{{ url_for('owner.new_visit') }}">Add your first car</a>.</span></li>
-  </ol>
-</section>
-{% endif %}
-
 {% if booked %}
 <section class="lane lane-booked">
   <h2>Booked today <span class="count">{{ booked|length }}</span></h2>
@@ -57,23 +39,21 @@
 </section>
 {% endif %}
 
+{% if washers %}
 <dialog id="start-dialog" class="sheet">
   <form method="post">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <h3>Who's washing <span class="dlg-plate"></span>?</h3>
-    {% if washers %}
     <div class="chips">
       {% for w in washers %}
       <label class="chip"><input type="checkbox" name="washer_id" value="{{ w.id }}"><span>{{ w.name }}</span></label>
       {% endfor %}
     </div>
-    {% else %}
-    <p class="muted small">Tip: <a href="{{ url_for('owner.settings_staff') }}">add your washers</a> to see who's fastest.</p>
-    {% endif %}
     <div class="row">
       <button type="button" class="btn" data-close>Cancel</button>
       <button class="btn primary">{{ icon('play') }} Start washing</button>
     </div>
   </form>
 </dialog>
+{% endif %}
 {% endblock %}

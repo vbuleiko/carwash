@@ -1,12 +1,13 @@
 {% extends "app/layout.html" %}
-{% from "_macros.html" import icon %}
+{% from "_macros.html" import icon, setup_head, setup_skip %}
 {% block page_title %}Your price list{% endblock %}
-{% block top_left %}{% if welcome %}{{ super() }}{% else %}<a class="topbar-back" href="{{ url_for('owner.settings_prices') }}">{{ icon('back') }} Price list</a>{% endif %}{% endblock %}
+{% block tabbar %}{% if not wizard %}{{ super() }}{% endif %}{% endblock %}
+{% block top_left %}{% if wizard %}{{ super() }}{% else %}<a class="topbar-back" href="{{ url_for('owner.settings_prices') }}">{{ icon('back') }} Price list</a>{% endif %}{% endblock %}
 {% block content %}
+{% if wizard %}{{ setup_head('prices') }}{% endif %}
 <form method="post" enctype="multipart/form-data" class="card stack" data-busy="Reading your price list…">
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-  {% if welcome %}<input type="hidden" name="welcome" value="1">{% endif %}
-  <h2>{{ 'Start with your price list' if welcome else 'Read your price list' }}</h2>
+  <h2>{{ 'Start with your price list' if wizard else 'Read your price list' }}</h2>
   <p class="muted">Just snap your price board — or send a PDF. AI fills in every service and price for you. Give it a quick check and you're done.</p>
   <label class="field">
     <span>Photos or a PDF · up to 10 pages</span>
@@ -15,5 +16,8 @@
   <button class="btn primary big wide">Read my price list</button>
   <p class="muted small center">Usually takes under a minute.</p>
 </form>
-{% if welcome %}<p class="center"><a href="{{ url_for('owner.board') }}">Skip — start with our sample prices</a></p>{% endif %}
+{% if wizard %}
+<p class="center">or <a href="{{ url_for('owner.settings_prices') }}">type your prices in yourself</a></p>
+{{ setup_skip('prices', 'Skip — use our sample prices for now') }}
+{% endif %}
 {% endblock %}

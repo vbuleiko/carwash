@@ -105,25 +105,66 @@ def test_signup_seeds_price_list_and_trial(owner, db):
                       "WHERE s.tenant_id = ?", (t["id"],)).fetchone()[0] == 20
 
 
-def test_first_steps_tick_off_and_go(owner, db):
-    def ticked():
-        return len(re.findall(rb'class="step-done"', owner.get("/app/").data))
+def test_first_setup_step_by_step(browser, db):
+    resp = signup(browser)
+    assert resp.location.endswith("/app/setup")
+    assert browser.get("/app/").location.endswith("/app/setup")  # the board waits until setup is done
+    assert browser.get("/app/setup").location.endswith("/app/settings/prices")  # no price reader here
+    page = browser.get("/app/settings/prices").data
+    assert b"Step 1 of 4" in page and b'class="tabbar"' not in page
+    assert browser.post("/app/settings/prices", {"new_service": "Wax"}).location.endswith("/app/settings/prices")
+    resp = browser.post("/app/settings/prices", {})
+    assert resp.location.endswith("/app/setup") and browser.get(resp.location).location.endswith("/app/setup/hours")
 
+    browser.get("/app/setup/hours")
+    resp = browser.post("/app/setup/hours", {"open_0": "1", "from_0": "07:00", "to_0": "18:00"})
+    assert browser.get(resp.location).location.endswith("/app/setup/staff")
+    t = db.execute("SELECT * FROM tenants").fetchone()
+    assert json.loads(t["hours"]) == [["07:00", "18:00"], None, None, None, None, None, None]
+
+    browser.get("/app/setup/staff")
+    resp = browser.post("/app/setup/staff", {"names": "Sipho\n  thabo \nSIPHO\n\n"})
+    assert browser.get(resp.location).location.endswith("/app/setup/look")
+    assert [r[0] for r in db.execute("SELECT name FROM washers ORDER BY id")] == ["Sipho", "thabo"]
+
+    look = browser.get("/app/setup/look").data
+    assert b"Step 4 of 4" in look and b"/site/bubbles-car-wash" in look
+    resp = browser.post("/app/settings/theme", {"theme": "noir", "next": "/app/setup/look"})
+    assert resp.location.endswith("/app/setup/look")
+    resp = browser.post("/app/setup/next", {"step": "look"})
+    assert resp.location.endswith("/app/setup/done")
+    done = browser.get("/app/setup/done").data
+    assert b"/site/bubbles-car-wash" in done and b"/book/bubbles-car-wash" in done
+    assert browser.get("/app/").status_code == 200
+    assert browser.post("/app/setup/next", {"step": "look"}).location.endswith("/app/setup")  # an old tab
+
+
+def test_setup_goes_on_where_it_stopped(browser):
+    signup(browser)
+    browser.get("/app/setup")
+    browser.post("/app/setup/next", {"step": "prices"})
+    browser.post("/app/setup/next", {"step": "hours"})
+    browser.post("/logout")
+    browser.get("/login")
+    resp = browser.post("/login", {"email": "owner@example.com", "password": "secret123"})
+    assert browser.get(browser.get(resp.location).location).location.endswith("/app/setup/staff")
+
+
+def test_no_washers_no_washer_questions(owner, db):
+    v = add_car(owner, db)
     board = owner.get("/app/").data
-    assert b"Get set up" in board and b"/book/bubbles-car-wash" in board and b"review" not in board
-    add_car(owner, db)
-    owner.post("/app/setup/link")
+    assert b"start-dialog" not in board and b"add your washers" not in board.lower()
+    owner.post(f"/app/visit/{v['id']}/start")
+    assert db.execute("SELECT status FROM visits WHERE id = ?", (v["id"],)).fetchone()[0] == "washing"
+    assert b"Washed by" not in owner.get(f"/app/visit/{v['id']}").data
+    assert b"<h2>Staff</h2>" not in owner.get("/app/reports").data
     owner.post("/app/settings/staff", {"new_name": "Sipho"})
-    assert ticked() == 3
-    open_all_week(owner)
-    assert ticked() == 4
-    owner.post("/app/settings/prices", {})
-    assert b"Get set up" not in owner.get("/app/").data
+    assert b"start-dialog" in owner.get("/app/").data
 
 
-def test_demo_has_no_first_steps(browser):
+def test_demo_has_no_setup(browser):
     browser.post("/demo")
-    assert b"Get set up" not in browser.get("/app/").data
+    assert browser.get("/app/").status_code == 200
 
 
 def test_duplicate_email_and_login(browser):
@@ -972,9 +1013,10 @@ def test_owner_makes_the_website_theirs(app, db):
     assert b"at least 8" in joe.post(f"/site/{BAY}/claim", {"phone": "0821112222", "email": "joe@bay.co.za",
                                                               "password": "short"}).data
     resp = joe.post(f"/site/{BAY}/claim", {"phone": "083 999 8888", "email": "Joe@Bay.co.za", "password": "secret123"})
-    assert resp.location.endswith("/app/")
-    assert b"Bay Crescent Carwash is yours" in joe.get("/app/").data
+    assert resp.location.endswith("/app/setup")
+    assert b"Bay Crescent Carwash is yours" in joe.get(joe.get(resp.location).location).data
     t = db.execute("SELECT * FROM tenants WHERE slug = ?", (BAY,)).fetchone()
+    assert t["setup"] == "prices"
     assert t["email"] == "joe@bay.co.za" and t["phone"] == "27839998888" and t["theme"] == "volt"
     assert t["plan"] == "trial" and t["paid_until"] == (local_today(zone(DEFAULT_TZ)) + timedelta(days=60)).isoformat()
     assert t["created_at"] >= ts(now_utc() - timedelta(minutes=1))  # counts as a sign-up in the emails

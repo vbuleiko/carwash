@@ -105,6 +105,8 @@ def _today_bounds() -> tuple[str, str]:
 
 @bp.get("/")
 def board():
+    if g.tenant["setup"]:
+        return redirect(url_for(".setup"))
     db = get_db()
     start, end = _today_bounds()
     rows = db.execute(
@@ -132,39 +134,99 @@ def board():
     ).fetchall()
     booked = [bookings.add_links(g.tenant, b) for b in bookings.between(db, _tid(), start, end, open_only=True)]
     return render_template(
-        "app/board.html", lanes=lanes, cars=cars, revenue=revenue, washers=washers, steps=_first_steps(db),
-        booked=booked, page_url=site.page_url(g.tenant),
+        "app/board.html", lanes=lanes, cars=cars, revenue=revenue, washers=washers, booked=booked,
     )
 
 
-def _first_steps(db) -> dict | None:
-    """What a new owner has done of the setup list on the board; None once all of it is done."""
-    if g.tenant["is_demo"]:
-        return None
-    done = g.tenant["setup"].split()
-    exists = lambda table: db.execute(f"SELECT 1 FROM {table} WHERE tenant_id = ? LIMIT 1", (_tid(),)).fetchone()
-    steps = {
-        "prices": "prices" in done,
-        "hours": bool(g.tenant["hours"]),
-        "link": "link" in done,
-        "washers": bool(exists("washers")),
-        "car": bool(exists("visits")),
-    }
-    return None if all(steps.values()) else steps
+# --- first setup: price list → opening hours → washers → look -----------------
+
+SETUP_STEPS = ("prices", "hours", "staff", "look")
 
 
-def _step_done(db, step: str):
-    done = g.tenant["setup"].split()
-    if step not in done:
-        db.execute("UPDATE tenants SET setup = ? WHERE id = ?", (" ".join(done + [step]), _tid()))
+def _setup_on(step: str) -> bool:
+    """The new owner is on this step of the first setup."""
+    return g.tenant["setup"] == step
 
 
-@bp.post("/setup/link")
-def setup_link():
+def _setup_next(db, step: str) -> str:
+    """Finish a setup step (inside a transaction); where to go next."""
+    if not _setup_on(step):  # an old tab
+        return url_for(".setup")
+    i = SETUP_STEPS.index(step) + 1
+    following = SETUP_STEPS[i] if i < len(SETUP_STEPS) else ""
+    db.execute("UPDATE tenants SET setup = ? WHERE id = ?", (following, _tid()))
+    return url_for(".setup") if following else url_for(".setup_done")
+
+
+def _can_read_prices() -> bool:
+    return menu.enabled() and not g.tenant["is_demo"]
+
+
+def _links() -> dict:
+    return {"website_url": site.website_url(g.tenant), "page_url": site.page_url(g.tenant)}
+
+
+@bp.get("/setup")
+def setup():
+    step = g.tenant["setup"]
+    if not step:
+        return redirect(url_for(".board"))
+    if step == "prices":
+        return redirect(url_for(".settings_prices_upload" if _can_read_prices() else ".settings_prices"))
+    return redirect(url_for(f".setup_{step}"))
+
+
+@bp.post("/setup/next")
+def setup_next():
     db = get_db()
     with db:
-        _step_done(db, "link")
-    return _done()
+        to = _setup_next(db, request.form.get("step", ""))
+    return redirect(to)
+
+
+@bp.route("/setup/hours", methods=["GET", "POST"])
+def setup_hours():
+    rows = _hours_rows()
+    if request.method == "POST":
+        rows, errors = _hours_form(request.form)
+        if not errors:
+            db = get_db()
+            with db:
+                db.execute("UPDATE tenants SET hours = ? WHERE id = ?", (_hours_json(rows), _tid()))
+                to = _setup_next(db, "hours")
+            return redirect(to)
+        for e in errors:
+            flash(e, "error")
+    return render_template("app/setup_hours.html", rows=rows, times=bookings.TIMES)
+
+
+@bp.route("/setup/staff", methods=["GET", "POST"])
+def setup_staff():
+    db = get_db()
+    have = [r["name"] for r in db.execute("SELECT name FROM washers WHERE tenant_id = ? AND active = 1 ORDER BY id",
+                                          (_tid(),))]
+    if request.method == "POST":
+        seen = {n.casefold() for n in have}
+        with db:
+            for line in request.form.get("names", "").splitlines()[:50]:
+                name = " ".join(line.split())[:30]
+                if name and name.casefold() not in seen:
+                    seen.add(name.casefold())
+                    db.execute("INSERT INTO washers (tenant_id, name, created_at) VALUES (?, ?, ?)",
+                               (_tid(), name, ts()))
+            to = _setup_next(db, "staff")
+        return redirect(to)
+    return render_template("app/setup_staff.html", have=have)
+
+
+@bp.get("/setup/look")
+def setup_look():
+    return render_template("app/setup_look.html", **_links())
+
+
+@bp.get("/setup/done")
+def setup_done():
+    return render_template("app/setup_done.html", **_links())
 
 
 # --- visits -------------------------------------------------------------------
@@ -690,15 +752,16 @@ def settings_prices():
             if new_service:
                 db.execute("INSERT INTO services (tenant_id, name, sort) VALUES (?, ?, ?)",
                            (_tid(), new_service, len(services)))
-            _step_done(db, "prices")
+            stay = bad or new_type or new_service
+            to = url_for(".settings_prices") if stay or not _setup_on("prices") else _setup_next(db, "prices")
         if bad:
             flash("Some numbers were wrong and were skipped: " + ", ".join(bad), "error")
         else:
             flash("Price list saved." + (" Now set prices for the new row." if new_type or new_service else ""))
-        return redirect(url_for(".settings_prices"))
+        return redirect(to)
     _, _, matrix = queries.price_list(db, _tid())
     return render_template("app/settings_prices.html", car_types=car_types, services=services, matrix=matrix,
-                           can_read=menu.enabled() and not g.tenant["is_demo"])
+                           can_read=_can_read_prices(), wizard=_setup_on("prices"))
 
 
 def big_upload():
@@ -708,7 +771,7 @@ def big_upload():
 
 
 def _price_reader():
-    if not menu.enabled() or g.tenant["is_demo"]:
+    if not _can_read_prices():
         abort(404)
     return get_db().execute("SELECT * FROM car_types WHERE tenant_id = ? AND active = 1 ORDER BY sort, id",
                             (_tid(),)).fetchall()
@@ -717,7 +780,7 @@ def _price_reader():
 @bp.route("/settings/prices/upload", methods=["GET", "POST"])
 def settings_prices_upload():
     car_types = _price_reader()
-    welcome = request.values.get("welcome") == "1"
+    wizard = _setup_on("prices")
     if request.method == "POST":
         try:
             if not limiter.allow(f"menu:{_tid()}", 20, 86400):
@@ -727,8 +790,8 @@ def settings_prices_upload():
         except menu.Unreadable as e:
             flash(str(e), "error")
         else:
-            return render_template("app/settings_prices_import.html", car_types=car_types, rows=rows, welcome=welcome)
-    return render_template("app/settings_prices_upload.html", welcome=welcome)
+            return render_template("app/settings_prices_import.html", car_types=car_types, rows=rows, wizard=wizard)
+    return render_template("app/settings_prices_upload.html", wizard=wizard)
 
 
 @bp.post("/settings/prices/import")
@@ -757,11 +820,11 @@ def settings_prices_import():
     db = get_db()
     with db:
         queries.replace_price_list(db, _tid(), rows, [t["id"] for t in car_types])
-        _step_done(db, "prices")
+        to = _setup_next(db, "prices") if _setup_on("prices") else url_for(".settings_prices")
     if bad:
         flash("Some numbers were wrong and were left empty: " + ", ".join(bad), "error")
     flash(f"Your price list is in: {len(rows)} service{'' if len(rows) == 1 else 's'}.")
-    return redirect(url_for(".board" if f.get("welcome") == "1" else ".settings_prices"))
+    return redirect(to)
 
 
 @bp.route("/settings/staff", methods=["GET", "POST"])
@@ -784,21 +847,31 @@ def settings_staff():
     return render_template("app/settings_staff.html", washers=washers)
 
 
+def _hours_rows() -> list:
+    return [(i, name, bool(span), *(span or ("08:00", "17:00"))) for i, (name, span) in
+            enumerate(zip(bookings.WEEKDAYS, bookings.hours(g.tenant)))]
+
+
+def _hours_form(f) -> tuple[list, list]:
+    rows = [(i, name, f.get(f"open_{i}") == "1", f.get(f"from_{i}", ""), f.get(f"to_{i}", ""))
+            for i, name in enumerate(bookings.WEEKDAYS)]
+    errors = [f"{name}: closing time should be after opening time." for _, name, is_open, a, b in rows
+              if is_open and not (a in bookings.TIMES and b in bookings.TIMES and a < b)]
+    return rows, errors
+
+
+def _hours_json(rows) -> str:
+    return json.dumps([[a, b] if is_open else None for _, _, is_open, a, b in rows])
+
+
 @bp.route("/settings/booking", methods=["GET", "POST"])
 def settings_booking():
     db = get_db()
-    week = bookings.hours(g.tenant)
-    rows = [(i, name, bool(span), *(span or ("08:00", "17:00"))) for i, (name, span) in
-            enumerate(zip(bookings.WEEKDAYS, week))]
+    rows = _hours_rows()
     slug = g.tenant["slug"]
     if request.method == "POST":
         f = request.form
-        errors = []
-        rows = [(i, name, f.get(f"open_{i}") == "1", f.get(f"from_{i}", ""), f.get(f"to_{i}", ""))
-                for i, name in enumerate(bookings.WEEKDAYS)]
-        for _, name, is_open, a, b in rows:
-            if is_open and not (a in bookings.TIMES and b in bookings.TIMES and a < b):
-                errors.append(f"{name}: closing time should be after opening time.")
+        rows, errors = _hours_form(f)
         capacity = f.get("slot_capacity", "").strip()
         if not is_number(capacity) or not 1 <= int(capacity) <= bookings.MAX_CAPACITY:
             errors.append(f"Cars at the same time: a number from 1 to {bookings.MAX_CAPACITY}.")
@@ -808,11 +881,10 @@ def settings_booking():
         elif db.execute("SELECT 1 FROM tenants WHERE slug = ? AND id != ?", (slug, _tid())).fetchone():
             errors.append("That page address is taken. Try another one.")
         if not errors:
-            hours = json.dumps([[a, b] if is_open else None for _, _, is_open, a, b in rows])
             with db:
                 db.execute(
                     "UPDATE tenants SET booking_on = ?, slug = ?, hours = ?, slot_capacity = ? WHERE id = ?",
-                    (int(f.get("booking_on") == "1"), slug, hours, int(capacity), _tid()),
+                    (int(f.get("booking_on") == "1"), slug, _hours_json(rows), int(capacity), _tid()),
                 )
             flash("Saved.")
             return redirect(url_for(".settings_booking"))
@@ -832,7 +904,8 @@ def settings_theme():
         with db:
             db.execute("UPDATE tenants SET theme = ? WHERE id = ?", (name, _tid()))
         back = request.form.get("next", "")  # the booking page has its own look switch
-        back = back if (back == "/" or back.startswith("/book/")) and back.isprintable() else url_for(".settings_theme")
+        ok = back in ("/", url_for(".setup_look")) or back.startswith("/book/")
+        back = back if ok and back.isprintable() else url_for(".settings_theme")
         return themes.remember(_done(to=back), name)
     return render_template("app/settings_theme.html")
 

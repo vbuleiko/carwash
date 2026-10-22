@@ -1,0 +1,7 @@
+    {% for i, name, is_open, start, end in rows %}
+    <div class="hours-row">
+      <label class="toggle small"><input type="checkbox" name="open_{{ i }}" value="1" {{ 'checked' if is_open }}><span>{{ name[:3] }}</span></label>
+      <select name="from_{{ i }}" aria-label="{{ name }} opens">{% for tm in times %}<option {{ 'selected' if tm == start }}>{{ tm }}</option>{% endfor %}</select>
+      <select name="to_{{ i }}" aria-label="{{ name }} closes">{% for tm in times %}<option {{ 'selected' if tm == end }}>{{ tm }}</option>{% endfor %}</select>
+    </div>
+    {% endfor %}

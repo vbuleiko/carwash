@@ -46,13 +46,6 @@ def services(db):
     return {r["name"]: r for r in db.execute("SELECT * FROM services ORDER BY id")}
 
 
-def test_signup_starts_with_the_price_list(browser, reader):
-    resp = signup(browser)
-    assert resp.location.endswith("/app/settings/prices/upload?welcome=1")
-    page = browser.get(resp.location).data
-    assert b"Start with your price list" in page and b"Skip" in page
-
-
 def test_without_a_key_there_is_no_upload(owner):
     assert b"/settings/prices/upload" not in owner.get("/app/settings/prices").data
     assert owner.get("/app/settings/prices/upload").status_code == 404
@@ -120,12 +113,15 @@ def test_replace_keeps_history(owner, reader, db):
                              (now["wash & go"]["id"],)).fetchall())
     assert prices == {types[0]: 8000, types[1]: 9500}
     assert b"Some numbers were wrong" in owner.get("/app/settings/prices").data
-    assert b'class="step-done"' in owner.get("/app/").data
 
 
-def test_new_owner_goes_back_to_the_board(owner, reader):
-    resp = owner.post("/app/settings/prices/import", {"name_0": "Wash", "welcome": "1"})
-    assert resp.location.endswith("/app/")
+def test_new_owner_reads_the_price_list_first(browser, reader):
+    resp = signup(browser)
+    assert browser.get(resp.location).location.endswith("/app/settings/prices/upload")
+    page = browser.get("/app/settings/prices/upload").data
+    assert b"Step 1 of 4" in page and b"Start with your price list" in page and b"Skip" in page
+    resp = browser.post("/app/settings/prices/import", {"name_0": "Wash"})
+    assert resp.location.endswith("/app/setup") and browser.get(resp.location).location.endswith("/app/setup/hours")
 
 
 def test_demo_cannot_read(browser, reader):

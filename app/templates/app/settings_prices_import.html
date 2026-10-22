@@ -1,12 +1,13 @@
 {% extends "app/layout.html" %}
-{% from "_macros.html" import icon %}
+{% from "_macros.html" import icon, setup_head %}
 {% block page_title %}Check your price list{% endblock %}
-{% block top_left %}<a class="topbar-back" href="{{ url_for('owner.settings_prices_upload', welcome=1 if welcome else None) }}">{{ icon('back') }} Check prices</a>{% endblock %}
+{% block top_left %}<a class="topbar-back" href="{{ url_for('owner.settings_prices_upload') }}">{{ icon('back') }} Check prices</a>{% endblock %}
+{% block tabbar %}{% if not wizard %}{{ super() }}{% endif %}{% endblock %}
 {% block content %}
+{% if wizard %}{{ setup_head('prices') }}{% endif %}
 <p class="muted small">We found {{ rows|length }} service{{ '' if rows|length == 1 else 's' }}. Fix anything that's wrong. Clear a name to leave that service out; leave a price empty if you don't do it for that car type.</p>
-<form method="post" action="{{ url_for('owner.settings_prices_import') }}" class="stack" data-confirm="Replace your price list with these {{ rows|length }} services?">
+<form method="post" action="{{ url_for('owner.settings_prices_import') }}" class="stack"{% if not wizard %} data-confirm="Replace your price list with these {{ rows|length }} services?"{% endif %}>
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-  {% if welcome %}<input type="hidden" name="welcome" value="1">{% endif %}
   {% for r in rows %}{% set i = loop.index0 %}
   <section class="card stack">
     <input name="name_{{ i }}" value="{{ r.name }}" maxlength="40" class="strong" aria-label="Service name">
@@ -25,8 +26,12 @@
     </div>
   </section>
   {% endfor %}
+  {% if wizard %}
+  <button class="btn primary big wide">Next</button>
+  {% else %}
   <p class="muted small">This replaces your price list. Services that aren't here are hidden — past cars and bookings keep them.</p>
   <button class="btn primary big wide">Replace my price list</button>
+  {% endif %}
   <a class="btn ghost wide" href="{{ url_for('owner.settings_prices_upload') }}">Try other photos</a>
 </form>
 {% endblock %}

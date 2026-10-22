@@ -1,0 +1,18 @@
+{% extends "app/layout.html" %}
+{% from "_macros.html" import setup_head %}
+{% block page_title %}Look{% endblock %}
+{% block tabbar %}{% endblock %}
+{% block content %}
+{{ setup_head('look') }}
+<section class="card stack">
+  <h2>Pick a look</h2>
+  <p class="muted">For your website and your booking page — this app gets it too. Tap one to try it.</p>
+  <p class="small">See it on <a href="{{ website_url }}" target="_blank" rel="noopener">your website</a> · <a href="{{ page_url }}" target="_blank" rel="noopener">your booking page</a></p>
+</section>
+{% with next=url_for('owner.setup_look') %}{% include "app/_themes.html" %}{% endwith %}
+<form method="post" action="{{ url_for('owner.setup_next') }}">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="step" value="look">
+  <button class="btn primary big wide">Next</button>
+</form>
+{% endblock %}
