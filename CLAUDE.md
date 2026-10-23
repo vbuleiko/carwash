@@ -129,6 +129,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 - Страницы (GET, 200, HTML) получают слабый ETag и `private, no-cache`: неизменённая страница возвращается как 304 без тела. ETag слабый, потому что сильный Caddy при сжатии переписывает (`…-gzip`).
 - Запись: свободное время считает только `bookings.days()` (у каждого времени `fit` — сколько минут подряд свободно до закрытия; JS прячет времена, где `fit` меньше времени выбранных услуг; сервер повторно проверяет в `free_slot()` внутри `BEGIN IMMEDIATE`, чтобы двое не заняли последнее место). Место занимают `new`, `confirmed`, `arrived` на `bookings.slot_minutes(minutes)`. Запись закрыта, если `booking_on = 0`, мойка на паузе или подписка истекла.
 - Свой адрес мойки: `site.find_host` (before_request для всего приложения) кладёт в `g.host` мойку, чей `domain` = адрес запроса, иначе `None`. На таком адресе: `/` — её страница записи, `/book/<свой slug>` → `/`, чужие slug — 404, `/signup`, `/demo`, `/theme`, `/admin` — 404, `/login` пускает только владельца этой мойки. Ссылку на страницу записи давать только через `site.page_url` (`https://<domain>/` или `/book/<slug>`). HTTPS для адресов моек: Caddy on-demand, разрешение — `GET /tls-check?domain=` (200 только для сохранённых в `/admin`). Проверено с настоящим Caddy 2.10: сохранённый адрес получает сертификат, чужой — отказ TLS, http → https.
+- Мойка без записи (`booking_on = 0`, решение 23.10.2026: «Walk-ins only» от потенциального клиента): на сайте (`site/website.html`, и в архиве тоже) нет «Book online» и блока «Book in a minute», вместо них «Just drive in — no booking needed», кнопка **Get directions** и часы работы (в Settings → Online booking).
 - Типовой сайт (`/admin/tenant/<id>/website.zip`): `index.html` из `site/website.html`, `style.css` (шрифты переписаны на `fonts/...`), `theme.css`, только шрифты темы (`admin._font_files`), `icon.svg`. Цен и часов на нём нет — они на странице записи.
 - Страница записи ставит `g.site` (тема, часовой пояс), не `g.tenant`. Тема страницы — тема мойки. Владелец (своя сессия) видит сверху панель с кружками тем: POST в `/app/settings/theme` с `next=/book/...`.
 - Дни на странице записи переключаются через CSS `:has(#dN:checked) #tN` (работает без JS), JS только пересчитывает цены и итог и запоминает имя/телефон в `localStorage`.
@@ -147,7 +148,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 ```bash
 python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
 ADMIN_PASSWORD=admin flask --app app run --debug   # локально, база в ./data
-pytest -q                                          # 84 теста
+pytest -q                                          # 85 тестов
 ```
 Деплой (подробно в README.md):
 ```bash

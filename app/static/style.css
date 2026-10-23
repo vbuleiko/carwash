@@ -567,6 +567,9 @@ body.site { background: var(--bg); }
 .web-more, .web-find { text-align: center; }
 .web-more { margin: 18px 0 0; }
 .web-find p { margin: 0 0 14px; color: var(--muted); }
+.web-hours { list-style: none; width: min(320px, 100%); margin: 0 auto; padding: 0; text-align: left; }
+.web-hours li { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; font-variant-numeric: tabular-nums; }
+.web-hours li + li { border-top: 1px solid var(--line); }
 .website .web-yours { max-width: 640px; width: calc(100% - 32px); margin: 24px auto; padding: 28px 20px 18px; background: var(--card); border: 1px solid var(--accent); border-radius: var(--radius); }
 .web-yours .eyebrow, .web-price { text-align: center; }
 .web-yours h2 { margin-bottom: .4rem; }

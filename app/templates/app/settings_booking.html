@@ -7,6 +7,7 @@
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
   <section class="card stack">
     <label class="toggle"><input type="checkbox" name="booking_on" value="1" {{ 'checked' if (request.form.booking_on if request.method == 'POST' else g.tenant.booking_on) }}><span>Customers can book online</span></label>
+    <p class="small muted">Off: your website says “just drive in” and shows your opening hours instead.</p>
     {% if not g.tenant.domain %}
     <div class="field">
       <label for="slug">Page address</label>
