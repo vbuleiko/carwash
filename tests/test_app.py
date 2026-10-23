@@ -943,6 +943,20 @@ def test_ready_made_website_for_their_hosting(app, owner, db):
     assert "fonts/inter.woff2" not in names
 
 
+
+def test_website_of_a_walk_in_car_wash_has_no_booking(app, owner, db):
+    visitor = Browser(app.test_client())
+    page = visitor.get(f"/site/{SLUG}").data
+    assert b"Book online" in page and f'href="http://localhost/book/{SLUG}"'.encode() in page
+    assert b"Just drive in" not in page and b"Opening hours" not in page
+    data = {"slug": SLUG, "slot_capacity": "2", "open_0": "1", "from_0": "07:00", "to_0": "18:00"}
+    owner.post("/app/settings/booking", data)
+    page = visitor.get(f"/site/{SLUG}").data
+    assert b"Just drive in" in page and b"Get directions" in page and b"WhatsApp us" in page
+    assert b"Book online" not in page and b"Book in a minute" not in page and b"/book/" not in page
+    assert b"<span>Monday</span><span>07:00\xe2\x80\x9318:00</span>" in page
+    assert b"<span>Tuesday</span><span>Closed</span>" in page
+
 BAY = "bay-crescent-carwash"
 
 

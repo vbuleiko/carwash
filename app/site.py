@@ -88,6 +88,7 @@ def website(tenant, asset, look: str, preview: bool = False) -> str:
     return render_template(
         "site/website.html", t=tenant, look=look, asset=asset, services=services, place=where, preview=preview,
         prospect=preview, book=book,
+        week=[(name, bookings.hours_text(span)) for name, span in zip(bookings.WEEKDAYS, bookings.hours(tenant))],
         login=book + "login" if tenant["domain"] else url_for("public.login", _external=True),
         map_url=tenant["maps_url"] or "https://www.google.com/maps/search/?api=1&query="
         + quote(", ".join(p for p in (tenant["name"], where) if p)), year=date.today().year,

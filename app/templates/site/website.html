@@ -1,13 +1,14 @@
 {# the ready-made website: on our address (/site/<slug>), or files for the car wash's own hosting (admin → Download);
    preview = a car wash that hasn't signed up: the look switch and "Make it mine" for its owner-to-be #}
 {% from "_macros.html" import icon %}
+{% set walk_in = not t.booking_on %}
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{ t.name }}{{ ' · Car wash in ' ~ t.city if t.city }}</title>
-  <meta name="description" content="{{ t.name }}{{ ', ' ~ place if place }}. Book your car wash online: pick the services, the day and the time.">
+  <meta name="description" content="{{ t.name }}{{ ', ' ~ place if place }}. {{ 'Car wash — just drive in, no booking needed.' if walk_in else 'Book your car wash online: pick the services, the day and the time.' }}">
   <meta name="theme-color" content="{{ themes[look].bg }}">
   <link rel="icon" href="{{ asset('icon.svg') }}" type="image/svg+xml">
   <link rel="stylesheet" href="{{ asset('style.css') }}">
@@ -24,10 +25,14 @@
   <header class="book-hero web-hero">
     <p class="eyebrow">Car wash{{ ' · ' ~ t.city if t.city }}</p>
     <h1>{{ t.name }}</h1>
-    <p class="lead">Book your wash online in a minute. We confirm on WhatsApp.</p>
+    <p class="lead">{{ 'Just drive in — no booking needed.' if walk_in else 'Book your wash online in a minute. We confirm on WhatsApp.' }}</p>
     {% if place %}<div class="book-meta"><span>{{ icon('pin') }} {{ place }}</span></div>{% endif %}
     <div class="cta">
+      {% if walk_in %}
+      <a class="btn primary big" href="{{ map_url }}" target="_blank" rel="noopener">{{ icon('pin') }} Get directions</a>
+      {% else %}
       <a class="btn primary big" href="{{ book }}">{{ icon('calendar') }} Book online</a>
+      {% endif %}
       {% if wa %}<a class="btn wa big" href="{{ wa }}" target="_blank" rel="noopener">{{ icon('chat') }} WhatsApp us</a>{% endif %}
     </div>
   </header>
@@ -38,10 +43,11 @@
     <ul class="web-services">
       {% for s in services %}<li class="feature">{{ icon('check') }} {{ s.name }}</li>{% endfor %}
     </ul>
-    <p class="web-more"><a href="{{ book }}">See prices and free times →</a></p>
+    {% if not walk_in %}<p class="web-more"><a href="{{ book }}">See prices and free times →</a></p>{% endif %}
   </section>
   {% endif %}
 
+  {% if not walk_in %}
   <section class="how">
     <h2>Book in a minute</h2>
     <ol class="steps">
@@ -51,6 +57,7 @@
     </ol>
     <div class="cta cta-center"><a class="btn primary big" href="{{ book }}">{{ icon('calendar') }} Book online</a></div>
   </section>
+  {% endif %}
 
   {% if preview %}
   <section class="how web-yours" id="yours">
@@ -73,6 +80,15 @@
   </section>
   {% endif %}
 
+  {% if walk_in %}
+  <section class="how web-find">
+    <h2>Opening hours</h2>
+    <ul class="web-hours">
+      {% for name, text in week %}<li><span>{{ name }}</span><span>{{ text }}</span></li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
   {% if place %}
   <section class="how web-find">
     <h2>Find us</h2>
@@ -84,7 +100,7 @@
 
 <footer class="site-footer">
   <span>© {{ year }} {{ t.name }}</span>
-  <a href="{{ book }}">Book online</a>
+  {% if not walk_in %}<a href="{{ book }}">Book online</a>{% endif %}
   <a href="{{ login }}">Owner login</a>
 </footer>
 </body>
