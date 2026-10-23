@@ -123,13 +123,15 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     @app.after_request
     def security_headers(resp):
+        framed = request.endpoint in ("site.page", "public.website")  # shown inside the app's first setup
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
-        resp.headers.setdefault("X-Frame-Options", "DENY")
+        resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN" if framed else "DENY")
         resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         resp.headers.setdefault(
             "Content-Security-Policy",
             "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
-            "script-src 'self' 'wasm-unsafe-eval'; frame-ancestors 'none'; base-uri 'self'",  # wasm: disc scanner
+            "script-src 'self' 'wasm-unsafe-eval'; base-uri 'self'; "  # wasm: disc scanner
+            + ("frame-ancestors 'self'" if framed else "frame-ancestors 'none'"),
         )
         return resp
 

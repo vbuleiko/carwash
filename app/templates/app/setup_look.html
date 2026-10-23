@@ -1,18 +1,47 @@
 {% extends "app/layout.html" %}
-{% from "_macros.html" import setup_head %}
+{% from "_macros.html" import icon, setup_head %}
 {% block page_title %}Look{% endblock %}
 {% block tabbar %}{% endblock %}
 {% block content %}
 {{ setup_head('look') }}
 <section class="card stack">
   <h2>Pick a look</h2>
-  <p class="muted">For your website and your booking page — this app gets it too. Tap one to try it.</p>
-  <p class="small">See it on <a href="{{ website_url }}" target="_blank" rel="noopener">your website</a> · <a href="{{ page_url }}" target="_blank" rel="noopener">your booking page</a></p>
+  <p class="muted">For your website and your booking page — this app gets it too.</p>
+  <form method="post" action="{{ url_for('owner.settings_theme') }}" class="look-chips" aria-label="Look" data-look>
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="next" value="{{ url_for('owner.setup_look') }}">
+    {% for key, th in themes.items() %}
+    <button name="theme" value="{{ key }}" class="look-chip" data-css="{{ theme_css(key) }}" data-bg="{{ th.bg }}" aria-pressed="{{ 'true' if key == theme else 'false' }}"
+            style="--dot-bg: {{ th.bg }}; --dot: {{ th.accent }}"><i aria-hidden="true"></i>{{ th.name }}</button>
+    {% endfor %}
+    {% if own_design %}<a class="look-chip look-own" href="{{ own_design }}" target="_blank" rel="noopener" data-open="own-design">{{ icon('star') }} Your own design</a>{% endif %}
+  </form>
 </section>
-{% with next=url_for('owner.setup_look') %}{% include "app/_themes.html" %}{% endwith %}
+
+<section class="previews">
+  <div class="chips">
+    <label class="chip"><input type="radio" name="preview" value="site" checked><span>Website</span></label>
+    <label class="chip"><input type="radio" name="preview" value="book"><span>Booking page</span></label>
+  </div>
+  <iframe class="preview-site" src="{{ website }}" title="Your website" data-look-preview></iframe>
+  <iframe class="preview-book" src="{{ page }}" title="Your booking page" data-look-preview></iframe>
+</section>
+
 <form method="post" action="{{ url_for('owner.setup_next') }}">
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
   <input type="hidden" name="step" value="look">
   <button class="btn primary big wide">Next</button>
 </form>
+
+{% if own_design %}
+<dialog id="own-design" class="sheet">
+  <h3>Your own design</h3>
+  <p>Want a look no other car wash has? We'll design your website and booking page in your own unique style — your colours, your logo, your feel.</p>
+  <p class="muted small">The price depends on the design. Message the developer on WhatsApp and you'll agree on it together.</p>
+  <div class="row">
+    <button type="button" class="btn" data-close>Close</button>
+    <a class="btn wa" href="{{ own_design }}" target="_blank" rel="noopener">{{ icon('chat') }} Message on WhatsApp</a>
+  </div>
+</dialog>
+{% endif %}
 {% endblock %}

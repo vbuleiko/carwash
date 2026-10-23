@@ -1,5 +1,5 @@
 {# shared by the booking page and the "booked" page (values from site._common), and the website we make for a car wash #}
-{% if owner_view or prospect %}
+{% if (owner_view or prospect) and not request.args.embed %}
 <div class="owner-bar">
   {% if prospect %}
   <span>Made for {{ t.name }} by {{ config.APP_NAME }} · free for {{ config.PILOT_DAYS }} days</span>

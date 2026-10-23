@@ -75,6 +75,14 @@
       return;
     }
 
+    const opener = e.target.closest("[data-open]");
+    const dialog = opener && document.getElementById(opener.dataset.open);
+    if (dialog) {
+      e.preventDefault();
+      dialog.showModal();
+      return;
+    }
+
     const close = e.target.closest("[data-close]");
     if (close) {
       close.closest("dialog").close();
@@ -152,6 +160,32 @@
     });
   });
 
+  // --- first setup: − and + add or take away a washer's name --------------------------
+  document.querySelectorAll("form[data-washers]").forEach((form) => {
+    const list = form.querySelector(".washer-names");
+    const count = form.querySelector(".stepper output");
+    const [less, more] = form.querySelectorAll(".stepper button");
+    less.type = more.type = "button";  // Enter in a name goes on, not "−"
+    form.addEventListener("click", (e) => {
+      const btn = e.target.closest(".stepper button");
+      if (!btn) return;
+      const n = list.children.length + (btn === more ? 1 : -1);
+      if (n > list.children.length) {
+        const row = document.createElement("label");
+        row.className = "field";
+        row.innerHTML = `<span>Washer ${n}</span><input name="name_${n - 1}" maxlength="30" autocomplete="off" placeholder="Name">`;
+        list.append(row);
+        row.querySelector("input").focus();
+      } else if (n >= 0) {
+        list.lastElementChild.remove();
+      }
+      const shown = list.children.length;
+      count.textContent = shown;
+      less.disabled = shown === 0;
+      more.disabled = shown >= Number(more.dataset.most);
+    });
+  });
+
   // --- price list photos: smaller before they go (mobile data is dear) ---------------
   const photo = /^image\/(jpeg|png|webp)$/;
   function shrink(file) {
@@ -211,6 +245,7 @@
     const label = form.querySelector(".look-label b");
     if (label) label.textContent = btn.title;
     scrollBy(0, btn.getBoundingClientRect().top - top);  // the text above wraps anew: keep the button under the finger
+    document.querySelectorAll("iframe[data-look-preview]").forEach((f) => f.contentWindow.location.reload());
   }
   let lookTap = 0;
   document.querySelectorAll("form[data-look]").forEach((form) => {
