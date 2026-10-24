@@ -81,7 +81,7 @@ def _account_errors(email: str, password: str, phone: str) -> list[str]:
 
 @bp.route("/signup", methods=["GET", "POST"])
 def signup():
-    form = {}
+    form = session.pop("retry", {})
     pilot = request.values.get("plan") == "pilot"
     days = current_app.config["PILOT_DAYS" if pilot else "TRIAL_DAYS"]
     if request.method == "POST":
@@ -134,7 +134,7 @@ def login():
         else:
             flash("Wrong email or password.", "error")
         return render_template("public/login.html", email=email)
-    return render_template("public/login.html", email="")
+    return render_template("public/login.html", email=session.pop("retry", {}).get("email", ""))
 
 
 @bp.post("/logout")
@@ -218,7 +218,7 @@ def claim(slug):
         flash(f"{tenant['name']} already has an owner. Log in instead.", "error")
         return redirect(url_for(".login"))
     days = current_app.config["PILOT_DAYS"]
-    form = {"phone": format_phone(tenant["phone"])}
+    form = {"phone": format_phone(tenant["phone"]), **session.pop("retry", {})}
     if request.method == "POST":
         form = request.form
         email = form.get("email", "").strip().lower()[:120]

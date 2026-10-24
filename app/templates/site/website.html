@@ -41,9 +41,9 @@
   <section class="how">
     <h2>Services</h2>
     <ul class="web-services">
-      {% for s in services %}<li class="feature">{{ icon('check') }} {{ s.name }}</li>{% endfor %}
+      {% for s in services %}<li class="feature">{{ icon('check') }}<span>{{ s.name }}{% if price[s.id] %}<b class="web-from">{{ price[s.id] }}</b>{% endif %}</span></li>{% endfor %}
     </ul>
-    {% if not walk_in %}<p class="web-more"><a href="{{ book }}">See prices and free times →</a></p>{% endif %}
+    {% if not walk_in %}<p class="web-more"><a href="{{ book }}">{{ 'See free times' if price.values()|select|first else 'See prices and free times' }} →</a></p>{% endif %}
   </section>
   {% endif %}
 

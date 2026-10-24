@@ -282,7 +282,8 @@ def website(tid):
     """The ready-made website, as it will look on the car wash's own hosting."""
     tenant = _tenant_or_404(tid)
     files = {"theme.css": f"themes/{_look(tenant)}.css"}
-    return site.website(tenant, lambda name: url_for("static", filename=files.get(name, name)), _look(tenant))
+    return site.website(tenant, lambda name: url_for("static", filename=files.get(name, name)), _look(tenant),
+                        prices=False)
 
 
 @bp.get("/tenant/<int:tid>/website.zip")
@@ -292,7 +293,7 @@ def website_zip(tid):
     look = _look(tenant)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("index.html", site.website(tenant, lambda name: name, look))
+        z.writestr("index.html", site.website(tenant, lambda name: name, look, prices=False))
         z.writestr("style.css", (STATIC / "style.css").read_text().replace("url(/static/fonts/", "url(fonts/"))
         if look != "classic":
             z.write(STATIC / "themes" / f"{look}.css", "theme.css")

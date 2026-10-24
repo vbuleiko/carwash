@@ -114,7 +114,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 - Статусы визита: `queued → washing → ready → collected`, плюс `cancelled`. Метки времени при смене статуса выставляет `queries.status_updates` (при откате вперёд лежащие поля обнуляются).
 - Скорость мойщика — среднее отношение его времени к обычному времени на ту же работу (набор услуг + тип авто). Учитываются мойки от 3 до 300 минут; показывается, если у мойщика не меньше 3 таких моек.
 - Лояльность считается **по номеру авто**: `loyalty_every = 6` значит, после 5 платных шестая бесплатна; `0` — выключено.
-- Все POST-запросы требуют CSRF: поле `csrf` в форме или заголовок `X-CSRF`. JS-запросы шлют `X-Requested-With: fetch` и получают JSON вместо редиректа.
+- Все POST-запросы требуют CSRF: поле `csrf` в форме или заголовок `X-CSRF`. JS-запросы шлют `X-Requested-With: fetch` и получают JSON вместо редиректа. Cookie с токеном постоянная с первого визита (90 дней): временную браузер стирает при перезапуске, а восстановленная вкладка остаётся — у супервайзера K&L так не входилось (24.10.2026). На `/login`, `/signup`, `/site/<slug>/claim` протухшая форма не даёт 400, а возвращается заполненной (`security.RETRY`, без пароля) с «Please try again». Статика уходит без cookie (`Sessions` в `__init__.py`), иначе Flask переотправлял бы её и `Vary: Cookie` на каждый файл.
 - Вход: в сессии лежат `tenant_id` **и** `key` = `tenants.session_key`, `owner.load_tenant` сверяет их (id удалённых демо SQLite выдаёт заново — без ключа старая cookie открыла бы чужую мойку). Смена пароля и сброс в `/admin` меняют ключ → остальные устройства выходят. Новый вход — только через `public._start_session` / `queries.session_key`.
 - Числа из форм (id, проценты) проверять `utils.is_number` (только цифры, до 9 знаков), деньги — `parse_money` (до R9 999 999.99). Иначе 500 от SQLite.
 - Лимиты (`security.limiter`) хранятся в таблице `rate_hits`, общие для всех воркеров gunicorn.
@@ -130,7 +130,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 - Запись: свободное время считает только `bookings.days()` (у каждого времени `fit` — сколько минут подряд свободно до закрытия; JS прячет времена, где `fit` меньше времени выбранных услуг; сервер повторно проверяет в `free_slot()` внутри `BEGIN IMMEDIATE`, чтобы двое не заняли последнее место). Место занимают `new`, `confirmed`, `arrived` на `bookings.slot_minutes(minutes)`. Запись закрыта, если `booking_on = 0`, мойка на паузе или подписка истекла.
 - Свой адрес мойки: `site.find_host` (before_request для всего приложения) кладёт в `g.host` мойку, чей `domain` = адрес запроса, иначе `None`. На таком адресе: `/` — её страница записи, `/book/<свой slug>` → `/`, чужие slug — 404, `/signup`, `/demo`, `/theme`, `/admin` — 404, `/login` пускает только владельца этой мойки. Ссылку на страницу записи давать только через `site.page_url` (`https://<domain>/` или `/book/<slug>`). HTTPS для адресов моек: Caddy on-demand, разрешение — `GET /tls-check?domain=` (200 только для сохранённых в `/admin`). Проверено с настоящим Caddy 2.10: сохранённый адрес получает сертификат, чужой — отказ TLS, http → https.
 - Мойка без записи (`booking_on = 0`, решение 23.10.2026: «Walk-ins only» от потенциального клиента): на сайте (`site/website.html`, и в архиве тоже) нет «Book online» и блока «Book in a minute», вместо них «Just drive in — no booking needed», кнопка **Get directions** и часы работы (в Settings → Online booking).
-- Типовой сайт (`/admin/tenant/<id>/website.zip`): `index.html` из `site/website.html`, `style.css` (шрифты переписаны на `fonts/...`), `theme.css`, только шрифты темы (`admin._font_files`), `icon.svg`. Цен и часов на нём нет — они на странице записи.
+- Типовой сайт (`/admin/tenant/<id>/website.zip`): `index.html` из `site/website.html`, `style.css` (шрифты переписаны на `fonts/...`), `theme.css`, только шрифты темы (`admin._font_files`), `icon.svg`. Цен на нём нет (в файлах устарели бы), на нашем адресе `/site/<slug>` — есть: в карточках услуг `R80` или `from R80` (минимум по типам авто, `site.price_label`; решение 24.10.2026).
 - Страница записи ставит `g.site` (тема, часовой пояс), не `g.tenant`. Тема страницы — тема мойки. Владелец (своя сессия) видит сверху панель с кружками тем: POST в `/app/settings/theme` с `next=/book/...`.
 - Дни на странице записи переключаются через CSS `:has(#dN:checked) #tN` (работает без JS), JS только пересчитывает цены и итог и запоминает имя/телефон в `localStorage`.
 - Услугу без цены для выбранного типа авто записать онлайн нельзя: на странице она серая (`disabled`), сервер тоже отказывает. В приложении такую услугу выбрать можно (цену владелец вводит сам).
@@ -148,7 +148,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 ```bash
 python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
 ADMIN_PASSWORD=admin flask --app app run --debug   # локально, база в ./data
-pytest -q                                          # 85 тестов
+pytest -q                                          # 88 тестов
 ```
 Деплой (подробно в README.md):
 ```bash

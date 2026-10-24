@@ -3,7 +3,7 @@ import hmac
 import secrets
 import time
 
-from flask import abort, current_app, request, session
+from flask import abort, current_app, flash, redirect, request, session
 
 from .db import get_db
 
@@ -13,7 +13,12 @@ def csrf_token() -> str:
     if not token:
         token = secrets.token_urlsafe(32)
         session["csrf"] = token
+        session.permanent = True  # a browser-session cookie is gone after a restart, the restored tab is not
     return token
+
+
+RETRY = {"public.login", "public.signup", "public.claim"}  # an expired form here comes back filled in
+KEEP = ("email", "name", "phone", "city")
 
 
 def check_csrf():
@@ -22,6 +27,11 @@ def check_csrf():
     sent = request.form.get("csrf") or request.headers.get("X-CSRF", "")
     token = session.get("csrf", "")
     if not token or not same(sent, token):
+        if request.endpoint in RETRY:
+            session["retry"] = {k: request.form[k][:120] for k in KEEP if request.form.get(k)}
+            session.permanent = True
+            flash("This page was open for a while. Please try again.", "error")
+            return redirect(request.full_path.rstrip("?"), 303)
         abort(400, "This form has expired. Go back, refresh the page and try again.")
 
 
