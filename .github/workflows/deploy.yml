@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main, claude/elegant-ritchie-hn78gl]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
