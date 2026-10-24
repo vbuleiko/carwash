@@ -33,9 +33,11 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy
+          body=$(printf '%s' "$DEPLOY_KEY" | sed 's/-----[A-Z ]*-----//g' | tr -d ' \t\r\n')
+          { echo "-----BEGIN OPENSSH PRIVATE KEY-----"; echo "$body" | fold -w 70; echo "-----END OPENSSH PRIVATE KEY-----"; } > ~/.ssh/deploy
           chmod 600 ~/.ssh/deploy
-          ssh -i ~/.ssh/deploy -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new \
+          ssh-keygen -y -f ~/.ssh/deploy > /dev/null || { echo "DEPLOY_KEY is not a valid key: copy it again"; exit 1; }
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new \
             "$DEPLOY_USER@carwasheasy.co.za" 'cd ~/carwash && bash deploy/update.sh'
       - name: Check the site
         run: curl -fsS --retry 12 --retry-delay 5 --retry-all-errors https://carwasheasy.co.za/healthz
