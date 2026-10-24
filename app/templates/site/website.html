@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="{{ asset('style.css') }}">
   {% if look != 'classic' %}<link rel="stylesheet" href="{{ asset('theme.css') }}" id="look-css">{% endif %}
   {% for font in themes[look].fonts %}<link rel="preload" href="{{ asset('fonts/' ~ font ~ '.woff2') }}" as="font" type="font/woff2" crossorigin>{% endfor %}
+  {% if types %}<style>{% for ct in types %}.web-prices:has(#car-type-{{ loop.index0 }}:checked) .web-p{{ loop.index0 }}{{ ', ' if not loop.last }}{% endfor %} { display: inline; }</style>{% endif %}
   {% if preview or t.is_demo %}<meta name="robots" content="noindex">{% endif %}
   {% if preview %}
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
@@ -38,11 +39,19 @@
   </header>
 
   {% if services %}
-  <section class="how">
+  <section class="how web-prices">
     <h2>Services</h2>
-    <ul class="web-services">
-      {% for s in services %}<li class="feature">{{ icon('check') }}<span>{{ s.name }}{% if price[s.id] %}<b class="web-from">{{ price[s.id] }}</b>{% endif %}</span></li>{% endfor %}
-    </ul>
+    {% if types %}
+    <div class="chips web-types" role="radiogroup" aria-label="Your car">
+      {% for ct in types %}<label class="chip"><input type="radio" name="car_type" id="car-type-{{ loop.index0 }}" {{ 'checked' if loop.first }}><span>{{ ct.name }}</span></label>{% endfor %}
+    </div>
+    {% endif %}
+    <div class="web-table"><table>
+      {% for s in services %}<tr><th scope="row">{{ s.name }}</th><td>
+        {%- if price[s.id] and types %}<span class="web-any">{{ price[s.id] }}</span>
+          {%- for ct in types %}{% set p = matrix[s.id].get(ct.id) %}<span class="web-p web-p{{ loop.index0 }}">{{ p|money if p is not none else '—' }}</span>{% endfor %}
+        {%- else %}{{ price[s.id] }}{% endif %}</td></tr>{% endfor %}
+    </table></div>
     {% if not walk_in %}<p class="web-more"><a href="{{ book }}">{{ 'See free times' if price.values()|select|first else 'See prices and free times' }} →</a></p>{% endif %}
   </section>
   {% endif %}
