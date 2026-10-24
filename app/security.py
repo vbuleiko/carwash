@@ -3,9 +3,10 @@ import hmac
 import secrets
 import time
 
-from flask import abort, current_app, flash, redirect, request, session
+from flask import abort, current_app, flash, g, redirect, request, session
 
 from .db import get_db
+from .sessions import COOKIE
 
 
 def csrf_token() -> str:
@@ -19,6 +20,8 @@ def csrf_token() -> str:
 
 RETRY = {"public.login", "public.signup", "public.claim"}  # an expired form here comes back filled in
 KEEP = ("email", "name", "phone", "city")
+# forms that work without a login: a browser that keeps no cookies may send them from our own pages
+NO_COOKIE = RETRY | {"public.demo", "site.book", "site.cancel"}
 
 
 def check_csrf():
@@ -26,13 +29,26 @@ def check_csrf():
         return
     sent = request.form.get("csrf") or request.headers.get("X-CSRF", "")
     token = session.get("csrf", "")
-    if not token or not same(sent, token):
-        if request.endpoint in RETRY:
-            session["retry"] = {k: request.form[k][:120] for k in KEEP if request.form.get(k)}
-            session.permanent = True
-            flash("This page was open for a while. Please try again.", "error")
-            return redirect(request.full_path.rstrip("?"), 303)
-        abort(400, "This form has expired. Go back, refresh the page and try again.")
+    if token and same(sent, token):
+        return
+    if request.endpoint in NO_COOKIE and not token and not request.environ.get(COOKIE) and same_origin():
+        g.cookieless = True
+        current_app.logger.warning("No cookie from the browser: %s %s", request.path, request.user_agent.string)
+        return
+    if request.endpoint in RETRY:
+        session["retry"] = {k: request.form[k][:120] for k in KEEP if request.form.get(k)}
+        session.permanent = True
+        flash("This page was open for a while. Please try again.", "error")
+        return redirect(request.full_path.rstrip("?"), 303)
+    abort(400, "This form has expired. Go back, refresh the page and try again.")
+
+
+def same_origin() -> bool:
+    """The form was sent from a page of this address (browsers send Origin with every POST)."""
+    origin = request.headers.get("Origin")
+    if origin is None:
+        return request.headers.get("Referer", "").startswith(request.host_url)
+    return origin + "/" == request.host_url
 
 
 def same(a: str, b: str) -> bool:

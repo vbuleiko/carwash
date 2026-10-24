@@ -162,6 +162,14 @@ CREATE TABLE IF NOT EXISTS rate_hits (
 );
 CREATE INDEX IF NOT EXISTS rate_hits_by_key ON rate_hits (key, at);
 
+-- logins of browsers that keep no cookies: the key travels in the address of every app page (?s=)
+CREATE TABLE IF NOT EXISTS link_sessions (
+    sid     TEXT PRIMARY KEY,
+    data    TEXT NOT NULL,                         -- the session, as the cookie would hold it
+    agent   TEXT NOT NULL,                         -- only the same browser can use the link
+    seen_at TEXT NOT NULL
+);
+
 -- server errors, for the daily report email
 CREATE TABLE IF NOT EXISTS errors (
     id        INTEGER PRIMARY KEY,
