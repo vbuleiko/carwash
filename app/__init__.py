@@ -6,6 +6,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from flask import Flask, g, got_request_exception, render_template, request
+from flask.sessions import SecureCookieSessionInterface
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import admin, assets, bookings, db, disc, notify, owner, public, seed, site, themes
@@ -89,6 +90,7 @@ def create_app(test_config: dict | None = None) -> Flask:
             seed.cleanup_demos(conn)
             bookings.fill_slugs(conn)
 
+    app.session_interface = Sessions()
     static = assets.Static(Path(app.root_path) / "static")
     app.add_url_rule("/static/<path:filename>", "static", static.send)
     app.url_defaults(static.add_version)
@@ -152,3 +154,11 @@ def create_app(test_config: dict | None = None) -> Flask:
         return render_template("error.html", error=err), err.code
 
     return app
+
+
+class Sessions(SecureCookieSessionInterface):
+    """Static files go out without the login cookie: they are cached for a year, the same for everyone."""
+
+    def save_session(self, app, session, response):
+        if request.endpoint != "static":
+            super().save_session(app, session, response)

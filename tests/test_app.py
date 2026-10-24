@@ -91,8 +91,30 @@ def test_app_requires_login(client):
     assert resp.status_code == 302 and "/login" in resp.location
 
 
-def test_post_without_csrf_is_rejected(client):
-    assert client.post("/signup", data={"name": "x"}).status_code == 400
+def test_post_without_csrf_is_rejected(client, db):
+    assert client.post("/demo").status_code == 400
+    assert client.post("/signup", data={"name": "x"}).status_code == 303
+    assert db.execute("SELECT COUNT(*) FROM tenants").fetchone()[0] == 0
+
+
+def test_expired_form_comes_back_filled_in(browser):
+    browser.get("/login")
+    resp = browser.post("/login", {"email": "Owner@Example.com", "password": "x", "csrf": "old"})
+    assert resp.status_code == 303 and resp.location.endswith("/login")
+    page = browser.get("/login").data
+    assert b'value="Owner@Example.com"' in page and b"open for a while" in page
+    assert b'value="Owner@Example.com"' not in browser.get("/login").data  # only once
+    resp = browser.post("/signup?plan=pilot", {"name": "Bubbles", "phone": "082 555 1234", "email": "a@b.co",
+                                               "password": "secret123", "csrf": "old"})
+    assert resp.location.endswith("/signup?plan=pilot")
+    page = browser.get("/signup?plan=pilot").data
+    assert b'value="Bubbles"' in page and b'value="082 555 1234"' in page and b"secret123" not in page
+    assert browser.post("/demo", {"csrf": "old"}).status_code == 400
+
+
+def test_form_cookie_outlives_a_browser_restart(client):
+    resp = client.get("/login")
+    assert "Expires=" in resp.headers["Set-Cookie"]
 
 
 def test_signup_seeds_price_list_and_trial(owner, db):
@@ -956,6 +978,25 @@ def test_website_of_a_walk_in_car_wash_has_no_booking(app, owner, db):
     assert b"Book online" not in page and b"Book in a minute" not in page and b"/book/" not in page
     assert b"<span>Monday</span><span>07:00\xe2\x80\x9318:00</span>" in page
     assert b"<span>Tuesday</span><span>Closed</span>" in page
+
+def test_website_shows_prices_on_service_cards(app, owner, db):
+    import io
+    import zipfile
+    tid = tenant_id(db)
+    shine = db.execute("SELECT id FROM services WHERE tenant_id = ? AND name = 'Tyre Shine'", (tid,)).fetchone()[0]
+    engine = db.execute("SELECT id FROM services WHERE tenant_id = ? AND name = 'Engine Wash'", (tid,)).fetchone()[0]
+    with db:
+        db.execute("UPDATE prices SET price_cents = 2500 WHERE service_id = ?", (shine,))
+        db.execute("DELETE FROM prices WHERE service_id = ?", (engine,))
+    page = Browser(app.test_client()).get(f"/site/{SLUG}").data.decode()
+    assert "Wash &amp; Go<b class=\"web-from\">from R70</b>" in page
+    assert "Full Valet<b class=\"web-from\">from R250</b>" in page
+    assert "Tyre Shine<b class=\"web-from\">R25</b>" in page
+    assert "Engine Wash</span>" in page and "See free times" in page
+    admin = admin_login(app)
+    files = zipfile.ZipFile(io.BytesIO(admin.get(f"/admin/tenant/{tid}/website.zip").data))
+    assert "web-from" not in files.read("index.html").decode()  # files on their hosting would go out of date
+
 
 BAY = "bay-crescent-carwash"
 

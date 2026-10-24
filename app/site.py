@@ -23,6 +23,7 @@ from .utils import (
     clean_plate,
     is_number,
     local_today,
+    money,
     normalize_phone,
     now_utc,
     phone_is_valid,
@@ -79,14 +80,16 @@ def place(tenant) -> str:
     return ", ".join(p for p in parts if p)
 
 
-def website(tenant, asset, look: str, preview: bool = False) -> str:
+def website(tenant, asset, look: str, preview: bool = False, prices: bool = True) -> str:
     """The ready-made website: on our address, or files for the car wash's own hosting;
-    preview: the car wash has no owner yet, so the page shows the look switch and "Make it mine"."""
-    _, services, _ = queries.price_list(get_db(), tenant["id"])
+    preview: the car wash has no owner yet, so the page shows the look switch and "Make it mine";
+    prices: off for the files, they would go out of date there."""
+    car_types, services, matrix = queries.price_list(get_db(), tenant["id"])
     book = page_url(tenant)
     where = place(tenant)
     return render_template(
         "site/website.html", t=tenant, look=look, asset=asset, services=services, place=where, preview=preview,
+        price={s["id"]: price_label(matrix.get(s["id"], {}), car_types) for s in services} if prices else {},
         prospect=preview, book=book,
         week=[(name, bookings.hours_text(span)) for name, span in zip(bookings.WEEKDAYS, bookings.hours(tenant))],
         login=book + "login" if tenant["domain"] else url_for("public.login", _external=True),
@@ -94,6 +97,14 @@ def website(tenant, asset, look: str, preview: bool = False) -> str:
         + quote(", ".join(p for p in (tenant["name"], where) if p)), year=date.today().year,
         wa=_wa(tenant, f"Hi {tenant['name']}! I'd like to book a wash."),
     )
+
+
+def price_label(prices: dict, car_types) -> str:
+    """"R80" when every car type pays the same, "from R80" when they differ, "" with no price."""
+    cents = {prices[c["id"]] for c in car_types if c["id"] in prices}
+    if not cents:
+        return ""
+    return money(min(cents)) if len(cents) == 1 else f"from {money(min(cents))}"
 
 
 def _owner_view(tenant) -> bool:
