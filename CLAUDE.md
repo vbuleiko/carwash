@@ -88,6 +88,7 @@ app/seed.py       стартовый прайс для новой мойки, г
 app/utils.py      время, деньги, телефоны, номера авто, wa.me
 app/themes.py     список тем и выбор текущей: тема мойки → cookie посетителя → THEME; `fonts` — файлы, которые base.html предзагружает
 app/assets.py     отдача /static: адрес с хешем содержимого (`?v=`), кэш на год, brotli для текста
+app/sessions.py   сессия: подписанная cookie, а у браузера, который не хранит cookie, — ключ в адресе (`?s=`) и таблица `link_sessions`
 app/static/style.css         вся вёрстка + токены темы Classic + @font-face всех шрифтов
 app/static/themes/<name>.css  остальные темы: переопределяют токены и немного правил, грузятся после style.css
 app/static/fonts/            шрифты тем (свои файлы, без CDN), ужаты без потерь — см. «Скорость загрузки»
@@ -104,7 +105,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 Настройки записи в `tenants`: `slug` (уникальный, адрес `/book/<slug>`), `domain` (уникальный, свой адрес мойки, `''` = нет), `address`, `hours` (JSON на 7 дней с понедельника, `''` = по умолчанию), `slot_capacity`, `booking_on`, `msg_booking`, `msg_cancel`.
 Убранные колонки (оплата мойщиков) удаляются из старых баз через `db.DROPPED_COLUMNS`.
 Мойка без владельца (`queries.is_prospect`): `is_demo = 0` и `email = NULL` — заведена в `/admin`, чтобы показать владельцу сайт; войти в неё нельзя.
-Без `tenant_id`-фильтра (служебные): `errors` (ошибки 500: путь, мойка, `place` = последний кадр в `app/`, трассировка; хранятся 30 дней), `mails_sent` (`signup:<id>:<created_at>`, `report:<дата>` — чтобы письмо не ушло дважды), `rate_hits`.
+Без `tenant_id`-фильтра (служебные): `link_sessions` (вход браузера без cookie: `sid` из адреса, данные сессии, `agent` — User-Agent, `seen_at`), `errors` (ошибки 500: путь, мойка, `place` = последний кадр в `app/`, трассировка; хранятся 30 дней), `mails_sent` (`signup:<id>:<created_at>`, `report:<дата>` — чтобы письмо не ушло дважды), `rate_hits`.
 
 ### Соглашения (важно соблюдать)
 - **Каждый запрос фильтруется по `tenant_id`.** Для чужих id — 404. Есть тест `test_car_wash_cannot_see_another_car_wash`.
@@ -115,6 +116,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 - Скорость мойщика — среднее отношение его времени к обычному времени на ту же работу (набор услуг + тип авто). Учитываются мойки от 3 до 300 минут; показывается, если у мойщика не меньше 3 таких моек.
 - Лояльность считается **по номеру авто**: `loyalty_every = 6` значит, после 5 платных шестая бесплатна; `0` — выключено.
 - Все POST-запросы требуют CSRF: поле `csrf` в форме или заголовок `X-CSRF`. JS-запросы шлют `X-Requested-With: fetch` и получают JSON вместо редиректа. Cookie с токеном постоянная с первого визита (90 дней): временную браузер стирает при перезапуске, а восстановленная вкладка остаётся — у супервайзера K&L так не входилось (24.10.2026). На `/login`, `/signup`, `/site/<slug>/claim` протухшая форма не даёт 400, а возвращается заполненной (`security.RETRY`, без пароля) с «Please try again». Статика уходит без cookie (`Sessions` в `__init__.py`), иначе Flask переотправлял бы её и `Vary: Cookie` на каждый файл.
+- **Браузер без cookie** (24.10.2026: у супервайзера K&L Samsung Internet 30 не хранил cookie — `POST /login` → 303 по кругу, без сообщения; воспроизведено в Chromium с запретом cookie). Вход, регистрация, «Make it mine», демо и онлайн-запись (`security.NO_COOKIE`) без cookie пропускаются, если `Origin` (нет — `Referer`) = наш адрес; в лог пишется `No cookie from the browser: <путь> <UA>`. `_start_session` тогда заводит строку в `link_sessions` (`sessions.start_link`), и **все адреса приложения** (`owner.*` и `public.logout`) получают `?s=<ключ>` через `url_defaults` (`sessions.add_link`). Публичные адреса (сайт, страница записи, ссылки для клиентов и в WhatsApp) ключ не получают никогда. Сессия по ключу работает только с тем же User-Agent, 14 дней без заходов — удаляется, выход удаляет сразу. Пришла рабочая cookie со входом — ключ забывается, GET перенаправляет на чистый адрес (восстановленная вкладка). Правила для нового кода: адреса приложения — только `url_for`; у формы с `method="get"` в приложении — `{{ link_field() }}`; в `app.js` параметры к адресу — через `withParam`, не `+ "?…"`. Из нескольких cookie `session` берётся первая с верной подписью. Тесты — класс `NoCookies` в `tests/test_app.py`.
 - Вход: в сессии лежат `tenant_id` **и** `key` = `tenants.session_key`, `owner.load_tenant` сверяет их (id удалённых демо SQLite выдаёт заново — без ключа старая cookie открыла бы чужую мойку). Смена пароля и сброс в `/admin` меняют ключ → остальные устройства выходят. Новый вход — только через `public._start_session` / `queries.session_key`.
 - Числа из форм (id, проценты) проверять `utils.is_number` (только цифры, до 9 знаков), деньги — `parse_money` (до R9 999 999.99). Иначе 500 от SQLite.
 - Лимиты (`security.limiter`) хранятся в таблице `rate_hits`, общие для всех воркеров gunicorn.
@@ -148,7 +150,7 @@ Caddyfile         основной DOMAIN + `https://` с on-demand TLS для �
 ```bash
 python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
 ADMIN_PASSWORD=admin flask --app app run --debug   # локально, база в ./data
-pytest -q                                          # 88 тестов
+pytest -q                                          # 93 теста
 ```
 Деплой (подробно в README.md):
 ```bash

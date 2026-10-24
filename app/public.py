@@ -19,7 +19,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import queries, seed, site, themes
+from . import queries, seed, sessions, site, themes
 from .db import get_db
 from .security import client_ip, limiter
 from .utils import DEFAULT_TZ, format_phone, local_today, normalize_phone, parse_money, phone_is_valid, ts, zone
@@ -38,6 +38,8 @@ def _start_session(tenant_id: int):
     session["key"] = key
     if csrf:
         session["csrf"] = csrf
+    if g.get("cookieless"):
+        sessions.start_link()
 
 
 @bp.before_request
@@ -130,7 +132,8 @@ def login():
             else:
                 _start_session(tenant["id"])
                 target = request.args.get("next", "")
-                return redirect(target if target.startswith("/app") and target.isprintable() else url_for("owner.board"))
+                ok = target.startswith("/app") and target.isprintable()
+                return redirect(sessions.keep_link(target) if ok else url_for("owner.board"))
         else:
             flash("Wrong email or password.", "error")
         return render_template("public/login.html", email=email)

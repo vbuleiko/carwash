@@ -117,6 +117,94 @@ def test_form_cookie_outlives_a_browser_restart(client):
     assert "Expires=" in resp.headers["Set-Cookie"]
 
 
+class NoCookies:
+    """A browser that keeps no cookies: Samsung Internet with cookies off, on a K&L supervisor's phone."""
+
+    def __init__(self, app, agent="SamsungBrowser/30.0", origin="http://localhost"):
+        self.client = app.test_client(use_cookies=False)
+        self.headers = {"User-Agent": agent, **({"Origin": origin} if origin else {})}
+        self.token = ""
+
+    def get(self, url):
+        resp = self.client.get(url, headers=self.headers)
+        m = re.search(rb'name="csrf" content="([^"]+)"', resp.data)
+        if m:
+            self.token = m.group(1).decode()
+        return resp
+
+    def post(self, url, data=None):
+        return self.client.post(url, data={"csrf": self.token, **(data or {})}, headers=self.headers)
+
+
+LOGIN = {"email": "owner@example.com", "password": "secret123"}
+
+
+def links(db):
+    return db.execute("SELECT COUNT(*) FROM link_sessions").fetchone()[0]
+
+
+def test_browser_without_cookies_logs_in_by_link(app, owner, db):
+    phone = NoCookies(app)
+    phone.get("/login")
+    resp = phone.post("/login", LOGIN)
+    sid = re.fullmatch(r"/app/\?s=([\w-]{32})", resp.location)[1]
+    board = phone.get(resp.location).data.decode()
+    assert f'href="/app/cars?s={sid}"' in board and f'href="/app/settings?s={sid}"' in board
+    page = phone.get(f"/app/settings?s={sid}").data.decode()
+    assert f'action="/logout?s={sid}"' in page
+    resp = phone.post(f"/app/settings/theme?s={sid}", {"theme": "noir"})
+    assert resp.status_code == 302 and resp.location.endswith(f"?s={sid}")
+    assert db.execute("SELECT theme FROM tenants WHERE email = 'owner@example.com'").fetchone()[0] == "noir"
+    new = phone.get(f"/app/new?s={sid}").data.decode()
+    assert f'data-lookup="/app/lookup?s={sid}"' in new
+    assert phone.get(f"/app/lookup?s={sid}&plate=CA1").json == {"found": False}
+    assert f'<input type="hidden" name="s" value="{sid}">' in phone.get(f"/app/cars?s={sid}").data.decode()
+    bookings = phone.get(f"/app/bookings?s={sid}").data.decode()
+    assert f"/book/{SLUG}" in bookings and "?s=" not in bookings.split("/book/", 1)[1].split('"', 1)[0]
+    assert NoCookies(app, agent="Another phone").get(f"/app/?s={sid}").location.startswith("/login")
+    phone.post(f"/logout?s={sid}")
+    assert links(db) == 0 and phone.get(f"/app/?s={sid}").location.startswith("/login")
+
+
+def test_browser_without_cookies_is_not_logged_in_from_another_site(app, owner, db):
+    for origin in ("https://evil.example", None):
+        phone = NoCookies(app, origin=origin)
+        phone.get("/login")
+        resp = phone.post("/login", LOGIN)
+        assert resp.status_code == 303 and "s=" not in resp.location
+    assert NoCookies(app, origin="https://evil.example").post("/demo").status_code == 400
+    assert links(db) == 0
+
+
+def test_tab_restored_without_the_cookie_logs_in_with_plain_addresses(app, owner, db):
+    tab = Browser(app.test_client())
+    tab.get("/login")
+    tab.client.delete_cookie("session")
+    resp = tab.post("/login", LOGIN, headers={"Origin": "http://localhost"})
+    assert "?s=" in resp.location and links(db) == 1
+    resp = tab.get(resp.location)
+    assert (resp.status_code, resp.location) == (302, "/app/") and links(db) == 0
+    assert tab.get("/app/").status_code == 200
+
+
+def test_an_old_cookie_coming_first_does_not_hide_the_login(app, owner):
+    good = owner.client.get_cookie("session").value
+    other = app.test_client(use_cookies=False)
+    assert other.get("/app/", headers={"Cookie": f"session=old.stale.cookie; session={good}"}).status_code == 200
+
+
+def test_customer_without_cookies_can_book(app, owner, db):
+    tid = tenant_id(db)
+    open_all_week(owner)
+    types, svcs = ids(db, "car_types", tid), ids(db, "services", tid)
+    phone = NoCookies(app)
+    page = phone.get(f"/book/{SLUG}")
+    resp = phone.post(f"/book/{SLUG}", {"car_type_id": types[0], "service_id": [svcs[0]], "slot": first_slot(page.data),
+                                        "name": "Thandi", "phone": "083 222 3333"})
+    assert resp.status_code == 302 and "s=" not in resp.location
+    assert db.execute("SELECT COUNT(*) FROM bookings").fetchone()[0] == 1 and links(db) == 0
+
+
 def test_signup_seeds_price_list_and_trial(owner, db):
     t = db.execute("SELECT * FROM tenants WHERE email = 'owner@example.com'").fetchone()
     assert t["phone"] == "27825551234"

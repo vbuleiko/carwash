@@ -15,6 +15,13 @@
     });
   }
 
+  // the address may already have a query: ?s= of a browser that keeps no cookies
+  function withParam(url, name, value) {
+    const u = new URL(url, location.href);
+    u.searchParams.set(name, value);
+    return u;
+  }
+
   function money(cents) {
     const r = Math.floor(cents / 100), c = cents % 100;
     return "R" + r.toLocaleString("en-US") + (c ? "." + String(c).padStart(2, "0") : "");
@@ -452,7 +459,7 @@
     lastQuery = q;
     let d;
     try {
-      const r = await fetch(form.dataset.lookup + "?plate=" + encodeURIComponent(q), { credentials: "same-origin" });
+      const r = await fetch(withParam(form.dataset.lookup, "plate", q), { credentials: "same-origin" });
       d = await r.json();
     } catch (_) { return; }
     if (plate.value.trim() !== q) return; // the plate changed while we waited
@@ -553,7 +560,7 @@
   }
 
   async function readDisc(raw) {
-    const r = await fetch(form.dataset.disc + "?code=" + encodeURIComponent(raw), { credentials: "same-origin" });
+    const r = await fetch(withParam(form.dataset.disc, "code", raw), { credentials: "same-origin" });
     return r.ok ? r.json() : { found: false };
   }
 

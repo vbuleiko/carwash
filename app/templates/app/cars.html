@@ -3,6 +3,7 @@
 {% block page_title %}Cars{% endblock %}
 {% block content %}
 <form class="search" method="get">
+  {{ link_field() }}
   {{ icon('search') }}
   <input type="search" name="q" value="{{ q }}" placeholder="Plate, phone or make" aria-label="Search cars" autocapitalize="characters" autocomplete="off">
 </form>

@@ -6,10 +6,9 @@ from datetime import timedelta
 from pathlib import Path
 
 from flask import Flask, g, got_request_exception, render_template, request
-from flask.sessions import SecureCookieSessionInterface
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from . import admin, assets, bookings, db, disc, notify, owner, public, seed, site, themes
+from . import admin, assets, bookings, db, disc, notify, owner, public, seed, sessions, site, themes
 from .security import check_csrf, csrf_token
 from .utils import fmt_minutes, format_phone, money, money_input, to_local, wa_link
 
@@ -90,23 +89,26 @@ def create_app(test_config: dict | None = None) -> Flask:
             seed.cleanup_demos(conn)
             bookings.fill_slugs(conn)
 
-    app.session_interface = Sessions()
+    app.session_interface = sessions.Sessions()
     static = assets.Static(Path(app.root_path) / "static")
     app.add_url_rule("/static/<path:filename>", "static", static.send)
     app.url_defaults(static.add_version)
+    app.url_defaults(sessions.add_link)
 
     app.register_blueprint(public.bp)
     app.register_blueprint(owner.bp)
     app.register_blueprint(admin.bp)
     app.register_blueprint(site.bp)
 
+    app.before_request(sessions.drop_link)
     app.before_request(site.find_host)
     app.before_request(owner.big_upload)
     app.before_request(check_csrf)
     got_request_exception.connect(notify.record_error, app)
     app.cli.add_command(notify.notify_command)
     app.cli.add_command(notify.report_command)
-    app.jinja_env.globals.update(csrf_token=csrf_token, wa_link=wa_link, car_makes=disc.MAKES)
+    app.jinja_env.globals.update(csrf_token=csrf_token, wa_link=wa_link, car_makes=disc.MAKES,
+                                 link_field=sessions.link_field)
     app.jinja_env.filters.update(money=money, amount=money_input, phone=format_phone, minutes=fmt_minutes)
 
     @app.template_filter("local")
@@ -154,11 +156,3 @@ def create_app(test_config: dict | None = None) -> Flask:
         return render_template("error.html", error=err), err.code
 
     return app
-
-
-class Sessions(SecureCookieSessionInterface):
-    """Static files go out without the login cookie: they are cached for a year, the same for everyone."""
-
-    def save_session(self, app, session, response):
-        if request.endpoint != "static":
-            super().save_session(app, session, response)
