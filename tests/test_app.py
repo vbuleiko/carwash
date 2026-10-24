@@ -1079,19 +1079,21 @@ def test_website_shows_prices_on_service_cards(app, owner, db):
         db.execute("DELETE FROM prices WHERE service_id = ?", (engine,))
     visitor = Browser(app.test_client())
     page = visitor.get(f"/site/{SLUG}").data.decode()
-    # car type buttons, the first one picked; the CSS shows the price of the picked type, "from" without :has()
-    assert 'id="car-type-0" checked><span>Hatch / Sedan</span>' in page and 'id="car-type-3" ><span>Minibus / Van' in page
-    assert ".web-prices:has(#car-type-3:checked) .web-p3 {" in page
+    # car type buttons, the first one picked, types with the same prices share one;
+    # the CSS shows the price of the picked type, "from" without :has()
+    assert 'id="car-type-0" checked><span>Hatch / Sedan</span>' in page
+    assert 'id="car-type-1" ><span>SUV / Bakkie</span>' in page and 'id="car-type-2" ><span>Minibus / Van' in page
+    assert ".web-prices:has(#car-type-2:checked) .web-p2 {" in page and "car-type-3" not in page
     assert ('<th scope="row">Wash &amp; Go</th><td><span class="web-any">from R70</span><span class="web-p web-p0">R70</span>'
-            '<span class="web-p web-p1">R90</span><span class="web-p web-p2">R90</span>'
-            '<span class="web-p web-p3">R120</span></td>') in page
+            '<span class="web-p web-p1">R90</span><span class="web-p web-p2">R120</span></td>') in page
     assert '<th scope="row">Tyre Shine</th><td><span class="web-any">R25</span><span class="web-p web-p0">R25</span>' in page
     assert '<th scope="row">Engine Wash</th><td></td>' in page and "See free times" in page
     with db:
         db.execute("DELETE FROM prices WHERE service_id = ? AND car_type_id = ?", (shine, minibus))
     page = visitor.get(f"/site/{SLUG}").data.decode()
-    assert '<span class="web-p web-p2">R25</span><span class="web-p web-p3">—</span>' in page
-    with db:  # the same price for every car type: no buttons
+    assert '<span class="web-p web-p1">R25</span><span class="web-p web-p2">—</span>' in page
+    with db:  # the same price for every car type (and a type with no prices at all): no buttons
+        db.execute("INSERT INTO car_types (tenant_id, name, sort) VALUES (?, 'Truck', 9)", (tid,))
         db.execute("DELETE FROM prices WHERE service_id IN (SELECT id FROM services WHERE tenant_id = ?) "
                    "AND service_id != ?", (tid, shine))
         db.execute("INSERT INTO prices VALUES (?, ?, 2500)", (shine, minibus))
