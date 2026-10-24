@@ -1082,11 +1082,11 @@ def test_website_shows_prices_on_service_cards(app, owner, db):
     # car type buttons, the first one picked; the CSS shows the price of the picked type, "from" without :has()
     assert 'id="car-type-0" checked><span>Hatch / Sedan</span>' in page and 'id="car-type-3" ><span>Minibus / Van' in page
     assert ".web-prices:has(#car-type-3:checked) .web-p3 {" in page
-    assert ('Wash &amp; Go<b class="web-from"><span class="web-any">from R70</span><span class="web-p web-p0">R70</span>'
+    assert ('<th scope="row">Wash &amp; Go</th><td><span class="web-any">from R70</span><span class="web-p web-p0">R70</span>'
             '<span class="web-p web-p1">R90</span><span class="web-p web-p2">R90</span>'
-            '<span class="web-p web-p3">R120</span></b>') in page
-    assert 'Tyre Shine<b class="web-from"><span class="web-any">R25</span><span class="web-p web-p0">R25</span>' in page
-    assert "Engine Wash</span>" in page and "See free times" in page
+            '<span class="web-p web-p3">R120</span></td>') in page
+    assert '<th scope="row">Tyre Shine</th><td><span class="web-any">R25</span><span class="web-p web-p0">R25</span>' in page
+    assert '<th scope="row">Engine Wash</th><td></td>' in page and "See free times" in page
     with db:
         db.execute("DELETE FROM prices WHERE service_id = ? AND car_type_id = ?", (shine, minibus))
     page = visitor.get(f"/site/{SLUG}").data.decode()
@@ -1096,10 +1096,11 @@ def test_website_shows_prices_on_service_cards(app, owner, db):
                    "AND service_id != ?", (tid, shine))
         db.execute("INSERT INTO prices VALUES (?, ?, 2500)", (shine, minibus))
     page = visitor.get(f"/site/{SLUG}").data.decode()
-    assert 'Tyre Shine<b class="web-from">R25</b>' in page and "car-type-0" not in page and "<style>" not in page
+    assert '<th scope="row">Tyre Shine</th><td>R25</td>' in page and "car-type-0" not in page and "<style>" not in page
     admin = admin_login(app)
     files = zipfile.ZipFile(io.BytesIO(admin.get(f"/admin/tenant/{tid}/website.zip").data))
-    assert "web-from" not in files.read("index.html").decode()  # files on their hosting would go out of date
+    index = files.read("index.html").decode()  # prices in files on their hosting would go out of date
+    assert '<th scope="row">Wash &amp; Go</th><td></td>' in index and "web-any" not in index
 
 
 BAY = "bay-crescent-carwash"

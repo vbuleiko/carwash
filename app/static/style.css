@@ -561,16 +561,17 @@ body.site { background: var(--bg); }
 .web-hero .lead { margin: 0 auto 14px; }
 .web-hero .book-meta { align-items: center; justify-content: center; margin-bottom: 0; }
 .web-hero .cta { justify-content: center; margin-bottom: 0; }
-.web-services { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-.web-services li { display: flex; align-items: center; gap: 10px; padding: 16px; font-weight: 600; }
-.web-services .icon { flex: none; color: var(--accent); }
-.web-services li > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.web-from { color: var(--accent); font-size: .9rem; }
-.web-types { display: none; flex-wrap: nowrap; gap: 6px; margin: -.4rem 0 16px; }
-.web-types .chip { flex: 1 1 0; min-width: 0; max-width: 180px; }
+.web-types { display: none; gap: 6px; max-width: 640px; margin: -.4rem auto 16px; }
+.web-types .chip { flex: 1 1 0; min-width: 0; }
 .web-types .chip span { width: 100%; height: 100%; justify-content: center; padding: .4em .5em; text-align: center; line-height: 1.15; }
+.web-table { max-width: 640px; margin: 0 auto; overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+.web-table table { width: 100%; }
+.web-table th, .web-table td { padding: 11px 16px; border: 0; font-weight: 600; vertical-align: baseline; }
+.web-table th { text-align: left; text-transform: none; letter-spacing: normal; font-size: .95rem; font-stretch: 100%; color: var(--text); }
+.web-table td { text-align: right; white-space: nowrap; color: var(--accent); font-size: 1rem; font-variant-numeric: tabular-nums; }
+.web-table tr + tr > * { border-top: 1px solid var(--line); }
 .web-p { display: none; }
-@supports selector(:has(*)) { .web-types { display: flex; justify-content: center; } .web-any { display: none; } }
+@supports selector(:has(*)) { .web-types { display: flex; } .web-any { display: none; } }
 .web-more, .web-find { text-align: center; }
 .web-more { margin: 18px 0 0; }
 .web-find p { margin: 0 0 14px; color: var(--muted); }
