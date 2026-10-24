@@ -90,7 +90,7 @@ def website(tenant, asset, look: str, preview: bool = False, prices: bool = True
     return render_template(
         "site/website.html", t=tenant, look=look, asset=asset, services=services, place=where, preview=preview,
         price={s["id"]: price_label(matrix.get(s["id"], {}), car_types) for s in services} if prices else {},
-        types=car_types if prices and _differ(services, matrix, car_types) else [], matrix=matrix,
+        types=_type_buttons(services, matrix, car_types) if prices else [], matrix=matrix,
         prospect=preview, book=book,
         week=[(name, bookings.hours_text(span)) for name, span in zip(bookings.WEEKDAYS, bookings.hours(tenant))],
         login=book + "login" if tenant["domain"] else url_for("public.login", _external=True),
@@ -108,10 +108,17 @@ def price_label(prices: dict, car_types) -> str:
     return money(min(cents)) if len(cents) == 1 else f"from {money(min(cents))}"
 
 
-def _differ(services, matrix, car_types) -> bool:
-    """Some service costs differently (or isn't sold) for some car type: the website then shows car type buttons."""
-    rows = [matrix[s["id"]] for s in services if matrix.get(s["id"])]
-    return any(len({row.get(c["id"]) for c in car_types}) > 1 for row in rows)
+def _type_buttons(services, matrix, car_types) -> list:
+    """Car type buttons for the website: types with the same prices share one ("SUV / Bakkie"),
+    a type with no prices has none; no buttons when one price list fits every type."""
+    groups: dict[tuple, list] = {}
+    for c in car_types:
+        key = tuple(matrix.get(s["id"], {}).get(c["id"]) for s in services)
+        if any(p is not None for p in key):
+            groups.setdefault(key, []).append(c)
+    if len(groups) < 2:
+        return []
+    return [{"id": same[0]["id"], "name": " / ".join(c["name"] for c in same)} for same in groups.values()]
 
 
 def _owner_view(tenant) -> bool:
