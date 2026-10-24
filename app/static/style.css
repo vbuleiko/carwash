@@ -566,6 +566,11 @@ body.site { background: var(--bg); }
 .web-services .icon { flex: none; color: var(--accent); }
 .web-services li > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .web-from { color: var(--accent); font-size: .9rem; }
+.web-types { display: none; flex-wrap: nowrap; gap: 6px; margin: -.4rem 0 16px; }
+.web-types .chip { flex: 1 1 0; min-width: 0; max-width: 180px; }
+.web-types .chip span { width: 100%; height: 100%; justify-content: center; padding: .4em .5em; text-align: center; line-height: 1.15; }
+.web-p { display: none; }
+@supports selector(:has(*)) { .web-types { display: flex; justify-content: center; } .web-any { display: none; } }
 .web-more, .web-find { text-align: center; }
 .web-more { margin: 18px 0 0; }
 .web-find p { margin: 0 0 14px; color: var(--muted); }

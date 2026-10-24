@@ -1073,14 +1073,30 @@ def test_website_shows_prices_on_service_cards(app, owner, db):
     tid = tenant_id(db)
     shine = db.execute("SELECT id FROM services WHERE tenant_id = ? AND name = 'Tyre Shine'", (tid,)).fetchone()[0]
     engine = db.execute("SELECT id FROM services WHERE tenant_id = ? AND name = 'Engine Wash'", (tid,)).fetchone()[0]
+    minibus = db.execute("SELECT id FROM car_types WHERE tenant_id = ? AND name = 'Minibus / Van'", (tid,)).fetchone()[0]
     with db:
         db.execute("UPDATE prices SET price_cents = 2500 WHERE service_id = ?", (shine,))
         db.execute("DELETE FROM prices WHERE service_id = ?", (engine,))
-    page = Browser(app.test_client()).get(f"/site/{SLUG}").data.decode()
-    assert "Wash &amp; Go<b class=\"web-from\">from R70</b>" in page
-    assert "Full Valet<b class=\"web-from\">from R250</b>" in page
-    assert "Tyre Shine<b class=\"web-from\">R25</b>" in page
+    visitor = Browser(app.test_client())
+    page = visitor.get(f"/site/{SLUG}").data.decode()
+    # car type buttons, the first one picked; the CSS shows the price of the picked type, "from" without :has()
+    assert 'id="car-type-0" checked><span>Hatch / Sedan</span>' in page and 'id="car-type-3" ><span>Minibus / Van' in page
+    assert ".web-prices:has(#car-type-3:checked) .web-p3 {" in page
+    assert ('Wash &amp; Go<b class="web-from"><span class="web-any">from R70</span><span class="web-p web-p0">R70</span>'
+            '<span class="web-p web-p1">R90</span><span class="web-p web-p2">R90</span>'
+            '<span class="web-p web-p3">R120</span></b>') in page
+    assert 'Tyre Shine<b class="web-from"><span class="web-any">R25</span><span class="web-p web-p0">R25</span>' in page
     assert "Engine Wash</span>" in page and "See free times" in page
+    with db:
+        db.execute("DELETE FROM prices WHERE service_id = ? AND car_type_id = ?", (shine, minibus))
+    page = visitor.get(f"/site/{SLUG}").data.decode()
+    assert '<span class="web-p web-p2">R25</span><span class="web-p web-p3">—</span>' in page
+    with db:  # the same price for every car type: no buttons
+        db.execute("DELETE FROM prices WHERE service_id IN (SELECT id FROM services WHERE tenant_id = ?) "
+                   "AND service_id != ?", (tid, shine))
+        db.execute("INSERT INTO prices VALUES (?, ?, 2500)", (shine, minibus))
+    page = visitor.get(f"/site/{SLUG}").data.decode()
+    assert 'Tyre Shine<b class="web-from">R25</b>' in page and "car-type-0" not in page and "<style>" not in page
     admin = admin_login(app)
     files = zipfile.ZipFile(io.BytesIO(admin.get(f"/admin/tenant/{tid}/website.zip").data))
     assert "web-from" not in files.read("index.html").decode()  # files on their hosting would go out of date
