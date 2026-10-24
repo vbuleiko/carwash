@@ -97,7 +97,7 @@ sudo docker compose up -d --build
 
 Без домена (только проверить): в `.env` поставь `DOMAIN=:80` и `COOKIE_SECURE=0`, открой `http://IP`. Для настоящей работы нужен домен: без HTTPS пароли идут открытым текстом и не работает «Add to Home Screen».
 
-**Обновление:** `bash deploy/update.sh` (git pull + пересборка).
+**Обновление:** `bash deploy/update.sh` (git pull + пересборка). Или само: после каждого слияния в `main` GitHub Actions (`.github/workflows/deploy.yml`) прогоняет тесты и, если они прошли, запускает `update.sh` на сервере по SSH. Нужны секреты репозитория `DEPLOY_KEY` (закрытый SSH-ключ, его открытая часть — в `~/.ssh/authorized_keys` на виртуалке) и `DEPLOY_USER` (пользователь на виртуалке).
 
 **Бэкапы:** `bash deploy/backup.sh` — копия базы в `backups/` (хранится 14 дней). Каждую ночь через `crontab -e`:
 

@@ -96,6 +96,7 @@ app/static/vendor/           декодер PDF417 для iPhone: barcode-detect
 app/templates/site/          страница записи (book.html, done.html, _hero.html, _top.html — панель владельца с выбором темы); website.html — типовой сайт для хостинга мойки (пути к файлам через `asset()`)
 tests/            pytest (conftest.Browser сам подставляет CSRF-токен)
 deploy/           setup-vm.sh, update.sh, backup.sh
+.github/workflows/deploy.yml  автодеплой: push в main → pytest → по SSH `deploy/update.sh` → проверка `/healthz`
 Caddyfile         основной DOMAIN + `https://` с on-demand TLS для адресов моек (Caddy спрашивает `/tls-check`)
 ```
 
@@ -155,7 +156,7 @@ pytest -q                                          # 93 теста
 Деплой (подробно в README.md):
 ```bash
 bash deploy/setup-vm.sh && nano .env && sudo docker compose up -d --build
-bash deploy/update.sh   # обновление
+bash deploy/update.sh   # обновление вручную (обычно не нужно: слияние в main деплоит само)
 bash deploy/backup.sh   # бэкап SQLite в backups/
 sudo docker compose exec notify flask --app app report   # отчёт на почту прямо сейчас (проверка SMTP)
 ```
@@ -219,7 +220,7 @@ sudo docker compose exec notify flask --app app report   # отчёт на по�
 ## Сервер (на 16.10.2026)
 - Google Cloud, проект **`carwasheasy-511812`** (в аккаунте пользователя есть ещё пустой «My First Project» — виртуалки там нет). Виртуалка **`washbook`**, зона **`africa-south1-a`**.
 - Зайти: Cloud Shell → `gcloud config set project carwasheasy-511812` → `gcloud compute ssh washbook --zone=africa-south1-a` (или консоль → Compute Engine → VM instances → SSH). Сам Cloud Shell — другая машина, папки проекта там нет; после переподключения он может сбросить проект.
-- Код в `~/carwash` на виртуалке, `.env` там же (не в git). Обновление: `bash deploy/update.sh` (берёт `main`).
+- Код в `~/carwash` на виртуалке, `.env` там же (не в git). Обновление: само после слияния в `main` (см. «Автодеплой»), вручную — `bash deploy/update.sh` (берёт `main`). Пользователь на виртуалке — `v_buleiko1`.
 - Контакты на сайте (подвал лендинга, `/privacy`, «Forgot your password?» на `/login`, «Subscribe on WhatsApp» в настройках) берутся только из `.env`: `SUPPORT_EMAIL=admin@carwasheasy.co.za`, `SUPPORT_WHATSAPP=27687826672` (+27 68 782 6672, решение 16.10.2026). После правки `.env` — `sudo docker compose up -d`. На живом сайте проверено 16.10.2026; тогда же в `.env` исправлен `APP_NAME` (сайт ещё показывал Washbook).
 
 ## Почта (работает с 16.10.2026)
@@ -251,3 +252,10 @@ sudo docker compose exec notify flask --app app report   # отчёт на по�
 ## Первая настройка (22.10.2026)
 - Слито в **`main`** 22.10.2026 (ветка `claude/charming-cray-ne273o`). Новую работу начинать от `main`. Пошаговый мастер и «без мойщиков — мойщиков не видно» — см. «Соглашения».
 - Проверено: 84 теста; в Chromium на 390px весь мастер во всех 5 темах без горизонтального скролла; кнопка Copy — в Chromium (Android) и WebKit (Safari), в том числе запасной путь без Clipboard API. На настоящем телефоне и с настоящим чтением прайса по фото — не проверено.
+
+## Автодеплой (24.10.2026)
+- Решение пользователя: **каждое слияние в `main` сразу уходит на живой сайт** (GitHub Actions, `.github/workflows/deploy.yml`; вариант с ключом Google Cloud в среде Claude отвергнут). Тесты упали — на сервер ничего не уходит. Есть ручной запуск (Actions → Deploy → Run workflow).
+- Секреты репозитория: `DEPLOY_KEY` (закрытый ключ `github-deploy`, ED25519, отпечаток `SHA256:ff+2h+fnPtig…`; создан в Cloud Shell, лежит там в `~/.ssh/deploy`), `DEPLOY_USER` = `v_buleiko1`. Открытый ключ — в `~/.ssh/authorized_keys` у `v_buleiko1` на виртуалке. Workflow сам чинит переносы строк в ключе (при копировании из окна SSH они ломаются).
+- SSH из песочницы Claude на сервер закрыт (порт 22 не открывается), с раннеров GitHub — открыт.
+- Из песочницы: перезапуск прогона через GitHub MCP — 403 (нет прав); смотреть прогоны можно без ключа через `https://api.github.com/repos/vbuleiko/carwash/actions/runs` (репозиторий публичный). GitHub бывает показывает «in progress» минутами после конца — смотреть шаги и лог job.
+- Cloud Shell у пользователя может стоять в другом проекте (`project-006e1d89-…`): сначала `gcloud config set project carwasheasy-511812`.
