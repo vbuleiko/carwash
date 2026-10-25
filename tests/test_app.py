@@ -390,6 +390,26 @@ def test_a_car_cannot_be_on_the_board_twice(owner, db):
     assert db.execute("SELECT COUNT(*) FROM visits").fetchone()[0] == 3
 
 
+def test_a_ready_car_nobody_collected_leaves_the_board(owner, db):
+    old, recent, waiting = (add_car(owner, db, plate=p) for p in ("CA 1", "CA 2", "CA 3"))
+    for v in (old, recent):
+        owner.post(f"/app/visit/{v['id']}/ready")
+    ago = lambda hours: ts(now_utc() - timedelta(hours=hours))
+    db.execute("UPDATE visits SET ready_at = ? WHERE id = ?", (ago(13), old["id"]))
+    db.execute("UPDATE visits SET ready_at = ? WHERE id = ?", (ago(11), recent["id"]))
+    db.execute("UPDATE visits SET created_at = ? WHERE id = ?", (ago(30), waiting["id"]))
+    db.execute("UPDATE tenants SET last_seen_at = NULL")
+    db.commit()
+
+    board = owner.get("/app/").data
+    rows = {r["id"]: r for r in db.execute("SELECT id, status, collected_at FROM visits")}
+    assert rows[old["id"]]["status"] == "collected" and rows[old["id"]]["collected_at"] is None
+    assert rows[recent["id"]]["status"] == "ready" and rows[waiting["id"]]["status"] == "queued"
+    shown = [f'href="/app/visit/{v["id"]}"'.encode() in board for v in (old, recent, waiting)]
+    assert shown == [False, True, True]
+    add_car(owner, db, plate="CA 1")
+
+
 def test_edit_visit_and_move_status_back(owner, db):
     v = add_car(owner, db)
     owner.post(f"/app/visit/{v['id']}/start")

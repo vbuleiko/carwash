@@ -1,17 +1,19 @@
 """Data access shared by the owner app, reports and seeding."""
 import secrets
-from datetime import date
+from datetime import date, timedelta
 
 from .utils import (
     fill_template,
     format_phone,
     money,
+    now_utc,
     plate_key,
     ts,
     wa_link,
 )
 
 STATUS_FLOW = ["queued", "washing", "ready", "collected"]
+READY_HOURS = 12
 STATUS_LABELS = {
     "queued": "Waiting",
     "washing": "Washing",
@@ -186,6 +188,14 @@ def on_board(db, vehicle_id: int, except_visit: int = 0):
         "ORDER BY id DESC LIMIT 1",
         (vehicle_id, except_visit),
     ).fetchone()
+
+
+def collect_forgotten(db, tenant_id: int):
+    """Ready cars nobody marked Collected leave the board READY_HOURS later, with no collection time."""
+    db.execute(
+        "UPDATE visits SET status = 'collected' WHERE tenant_id = ? AND status = 'ready' AND ready_at < ?",
+        (tenant_id, ts(now_utc() - timedelta(hours=READY_HOURS))),
+    )
 
 
 def status_updates(visit, new_status: str, now: str | None = None) -> dict:
