@@ -69,6 +69,7 @@ def load_tenant():
     if not tenant["last_seen_at"] or tenant["last_seen_at"][:15] != now[:15]:  # at most every 10 minutes
         with db:
             db.execute("UPDATE tenants SET last_seen_at = ? WHERE id = ?", (now, tenant_id))
+            queries.collect_forgotten(db, tenant_id)
 
 
 def _tid() -> int:
